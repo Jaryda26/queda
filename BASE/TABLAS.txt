@@ -1,0 +1,88 @@
+CREATE DATABASE queda;
+
+CREATE SCHEMA gastos;
+
+CREATE TABLE gastos.usuarios (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(100),
+    email VARCHAR(200) UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    fecha_alta TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    activo BOOLEAN DEFAULT TRUE
+);
+
+CREATE TABLE gastos.presupuestos (
+    id SERIAL PRIMARY KEY,
+    usuario_id INTEGER NOT NULL
+        REFERENCES gastos.usuarios(id),
+
+    tipo_periodo VARCHAR(20) NOT NULL,
+    monto NUMERIC(12,2) NOT NULL,
+
+    fecha_inicio DATE NOT NULL,
+    fecha_fin DATE NOT NULL,
+
+    activo BOOLEAN DEFAULT TRUE,
+
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE gastos.movimientos (
+    id SERIAL PRIMARY KEY,
+
+    usuario_id INTEGER NOT NULL
+        REFERENCES gastos.usuarios(id),
+
+    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    tipo VARCHAR(20) NOT NULL,
+
+    concepto VARCHAR(255),
+
+    categoria VARCHAR(100),
+
+    monto NUMERIC(12,2) NOT NULL
+);
+
+CREATE TABLE gastos.categorias (
+    id SERIAL PRIMARY KEY,
+
+    nombre VARCHAR(100) NOT NULL,
+
+    icono VARCHAR(50),
+
+    activa BOOLEAN DEFAULT TRUE
+);
+
+ALTER TABLE gastos.movimientos
+ADD COLUMN categoria_id INTEGER
+REFERENCES gastos.categorias(id);
+
+CREATE TABLE gastos.configuracion_usuario (
+    usuario_id INTEGER PRIMARY KEY
+        REFERENCES gastos.usuarios(id),
+
+    moneda VARCHAR(10) DEFAULT 'MXN',
+
+    idioma VARCHAR(10) DEFAULT 'es',
+
+    usa_voz BOOLEAN DEFAULT TRUE
+);
+
+CREATE TABLE gastos.suscripciones (
+    id SERIAL PRIMARY KEY,
+
+    usuario_id INTEGER
+        REFERENCES gastos.usuarios(id),
+
+    plan VARCHAR(20),
+
+    fecha_inicio TIMESTAMP,
+
+    fecha_fin TIMESTAMP,
+
+    activa BOOLEAN DEFAULT TRUE
+);
+
+ALTER TABLE gastos.movimientos
+ADD COLUMN texto_original TEXT;

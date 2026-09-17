@@ -1,0 +1,52 @@
+# Variables de entorno
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Entornos virtuales
+venv/
+.venv/
+env/
+
+# Streamlit
+.streamlit/
+.streamlit/secrets.toml
+
+# VS Code
+.vscode/
+
+# JetBrains
+.idea/
+
+# Logs
+*.log
+
+# Archivos temporales
+*.tmp
+*.bak
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Build
+build/
+dist/
+*.egg-info/
+
+# SQLite
+*.db
+*.sqlite
+*.sqlite3
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
