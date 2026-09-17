@@ -1,16 +1,35 @@
 import os
+import pandas as pd
 import streamlit as st
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = None
-
 try:
     DATABASE_URL = st.secrets["DATABASE_URL"]
-except:
+except Exception:
     DATABASE_URL = os.getenv("DATABASE_URL")
 
 engine = create_engine(DATABASE_URL)
+
+
+def ejecutar_query(query, params=None):
+
+    with engine.begin() as conn:
+
+        return conn.execute(
+            text(query),
+            params or {}
+        )
+
+
+def obtener_dataframe(query):
+
+    with engine.connect() as conn:
+
+        return pd.read_sql(
+            query,
+            conn
+        )
