@@ -5,7 +5,7 @@ from views.dashboard import pantalla_dashboard
 from views.movimientos import pantalla_movimientos
 from views.historial import pantalla_historial
 from views.presupuesto import pantalla_presupuesto
-
+from views.asistente import pantalla_asistente
 st.set_page_config(page_title="Queda",page_icon="💰",layout="wide")
 if "user_id" not in st.session_state:
     op=st.sidebar.radio("Acceso",["Login","Registro"])
@@ -15,4 +15,10 @@ else:
     op=st.sidebar.radio("Menú",["Dashboard","Movimientos","Historial","Presupuesto","Asistente IA"])
     if st.sidebar.button("Cerrar Sesión"):
         st.session_state.clear(); st.rerun()
-    {'Dashboard':pantalla_dashboard,'Movimientos':pantalla_movimientos,'Historial':pantalla_historial,'Presupuesto':pantalla_presupuesto}[op]()
+    {
+    'Dashboard': pantalla_dashboard,
+    'Movimientos': pantalla_movimientos,
+    'Historial': pantalla_historial,
+    'Presupuesto': pantalla_presupuesto,
+    'Asistente IA': pantalla_asistente
+}[op]()
