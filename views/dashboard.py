@@ -124,6 +124,46 @@ def pantalla_dashboard():
 
     st.markdown("---")
 
+    # SEMÁFORO INTELIGENTE
+
+    st.markdown("## 🚦 Estado del presupuesto")
+
+    if porcentaje < 50:
+
+        st.success(
+            f"""
+🟢 Vas muy bien.
+
+Has utilizado {porcentaje:.1f}% de tu presupuesto.
+
+Tu ritmo de gasto está controlado.
+"""
+        )
+
+    elif porcentaje < 80:
+
+        st.warning(
+            f"""
+🟡 Atención.
+
+Has utilizado {porcentaje:.1f}% de tu presupuesto.
+
+Conviene revisar tus gastos para no exceder el límite.
+"""
+        )
+
+    else:
+
+        st.error(
+            f"""
+🔴 Riesgo de exceder el presupuesto.
+
+Has utilizado {porcentaje:.1f}% de tu presupuesto.
+
+Reduce gastos para evitar terminar el periodo sin saldo.
+"""
+        )
+
     col1, col2 = st.columns(2)
 
     with col1:
