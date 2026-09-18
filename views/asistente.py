@@ -8,29 +8,26 @@ AZURE_OPENAI_ENDPOINT = st.secrets["AZURE_OPENAI_ENDPOINT"]
 AZURE_OPENAI_KEY = st.secrets["AZURE_OPENAI_KEY"]
 AZURE_OPENAI_DEPLOYMENT = st.secrets["AZURE_OPENAI_DEPLOYMENT"]
 
-
 client = OpenAI(
     base_url=AZURE_OPENAI_ENDPOINT,
     api_key=AZURE_OPENAI_KEY
 )
 
 PROMPT = """
-Eres un asistente financiero.
+Eres un clasificador financiero.
 
-Analiza el texto del usuario.
-
-Debes devolver EXCLUSIVAMENTE JSON válido.
+Devuelve EXCLUSIVAMENTE JSON válido.
 
 Formato:
 
 {
-    "tipo":"INGRESO|GASTO",
-    "categoria":"",
-    "concepto":"",
-    "monto":0
+  "tipo":"INGRESO|GASTO",
+  "categoria":"",
+  "concepto":"",
+  "monto":0
 }
 
-Categorias válidas:
+Categorías válidas:
 
 Gasolina
 Comida
@@ -41,49 +38,33 @@ Entretenimiento
 Otros
 Ingreso
 
-Reglas:
-
-- gasolina, diesel, combustible => Gasolina
-- tacos, comida, restaurante, cena => Comida
-- uber, taxi, casetas => Transporte
-- internet, luz, agua => Servicios
-- hospital, farmacia, medico => Salud
-- netflix, cine => Entretenimiento
-- sueldo, salario, nomina => Ingreso
-
 Ejemplos:
 
-Texto:
 Gasté 350 en gasolina
 
-Respuesta:
 {
-    "tipo":"GASTO",
-    "categoria":"Gasolina",
-    "concepto":"Gasolina",
-    "monto":350
+  "tipo":"GASTO",
+  "categoria":"Gasolina",
+  "concepto":"Gasolina",
+  "monto":350
 }
 
-Texto:
 Pagué 900 de internet
 
-Respuesta:
 {
-    "tipo":"GASTO",
-    "categoria":"Servicios",
-    "concepto":"Internet",
-    "monto":900
+  "tipo":"GASTO",
+  "categoria":"Servicios",
+  "concepto":"Internet",
+  "monto":900
 }
 
-Texto:
 Recibí 12000 de salario
 
-Respuesta:
 {
-    "tipo":"INGRESO",
-    "categoria":"Ingreso",
-    "concepto":"Salario",
-    "monto":12000
+  "tipo":"INGRESO",
+  "categoria":"Ingreso",
+  "concepto":"Salario",
+  "monto":12000
 }
 
 Devuelve solamente JSON.
@@ -91,6 +72,8 @@ Devuelve solamente JSON.
 
 
 def interpretar_movimiento(texto):
+
+    st.info("Consultando Azure OpenAI...")
 
     response = client.chat.completions.create(
         model=AZURE_OPENAI_DEPLOYMENT,
@@ -107,7 +90,12 @@ def interpretar_movimiento(texto):
         temperature=0
     )
 
+    st.success("Azure respondió")
+
     contenido = response.choices[0].message.content
+
+    st.subheader("Respuesta IA")
+    st.code(contenido)
 
     if contenido.startswith("```json"):
         contenido = contenido.replace("```json", "")
@@ -141,23 +129,12 @@ def guardar_movimiento(resultado, texto_original):
         )
         """,
         {
-            "usuario_id":
-                st.session_state["user_id"],
-
-            "tipo":
-                resultado["tipo"],
-
-            "categoria":
-                resultado["categoria"],
-
-            "concepto":
-                resultado["concepto"],
-
-            "monto":
-                resultado["monto"],
-
-            "texto_original":
-                texto_original
+            "usuario_id": st.session_state["user_id"],
+            "tipo": resultado["tipo"],
+            "categoria": resultado["categoria"],
+            "concepto": resultado["concepto"],
+            "monto": resultado["monto"],
+            "texto_original": texto_original
         }
     )
 
@@ -168,16 +145,16 @@ def pantalla_asistente():
 
     st.write(
         """
-        Ejemplos:
+Ejemplos:
 
-        Gasté 350 en gasolina
+Gasté 350 en gasolina
 
-        Pagué 900 de internet
+Pagué 900 de internet
 
-        Comí tacos por 180
+Comí tacos por 180
 
-        Recibí 12000 de salario
-        """
+Recibí 12000 de salario
+"""
     )
 
     texto = st.text_area(
@@ -189,16 +166,21 @@ def pantalla_asistente():
         if not texto.strip():
 
             st.warning(
-                "Escriba una descripción"
+                "Escribe una descripción"
             )
 
             return
 
         try:
 
+            st.write("Iniciando procesamiento...")
+
             resultado = interpretar_movimiento(
                 texto
             )
+
+            st.write("JSON interpretado:")
+            st.json(resultado)
 
             guardar_movimiento(
                 resultado,
@@ -206,15 +188,11 @@ def pantalla_asistente():
             )
 
             st.success(
-                "✅ Movimiento registrado"
+                "✅ Movimiento registrado correctamente"
             )
-
-            st.json(resultado)
-
-            st.rerun()
 
         except Exception as e:
 
             st.error(
-                f"Error: {str(e)}"
+                f"ERROR: {str(e)}"
             )
