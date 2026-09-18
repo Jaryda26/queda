@@ -1,8 +1,10 @@
 import json
 import streamlit as st
+
 from openai import OpenAI
 
 from db import ejecutar_query
+from db import obtener_dataframe
 
 AZURE_OPENAI_ENDPOINT = st.secrets["AZURE_OPENAI_ENDPOINT"]
 AZURE_OPENAI_KEY = st.secrets["AZURE_OPENAI_KEY"]
@@ -14,7 +16,9 @@ client = OpenAI(
 )
 
 PROMPT = """
-Eres un clasificador financiero.
+Eres un asistente financiero.
+
+Analiza el texto del usuario.
 
 Devuelve EXCLUSIVAMENTE JSON válido.
 
@@ -27,7 +31,7 @@ Formato:
   "monto":0
 }
 
-Categorías válidas:
+Categorias válidas:
 
 Gasolina
 Comida
@@ -37,6 +41,16 @@ Salud
 Entretenimiento
 Otros
 Ingreso
+
+Reglas:
+
+- gasolina, diesel, combustible => Gasolina
+- tacos, comida, restaurante, cena => Comida
+- uber, taxi, transporte => Transporte
+- internet, luz, agua => Servicios
+- hospital, medico, farmacia => Salud
+- netflix, cine => Entretenimiento
+- sueldo, salario, nomina => Ingreso
 
 Ejemplos:
 
@@ -73,8 +87,6 @@ Devuelve solamente JSON.
 
 def interpretar_movimiento(texto):
 
-    st.info("Consultando Azure OpenAI...")
-
     response = client.chat.completions.create(
         model=AZURE_OPENAI_DEPLOYMENT,
         messages=[
@@ -90,12 +102,7 @@ def interpretar_movimiento(texto):
         temperature=0
     )
 
-    st.success("Azure respondió")
-
     contenido = response.choices[0].message.content
-
-    st.subheader("Respuesta IA")
-    st.code(contenido)
 
     if contenido.startswith("```json"):
         contenido = contenido.replace("```json", "")
@@ -139,21 +146,62 @@ def guardar_movimiento(resultado, texto_original):
     )
 
 
+def obtener_saldo():
+
+    df = obtener_dataframe(
+        f"""
+        SELECT
+
+            COALESCE(
+                SUM(
+                    CASE
+                        WHEN tipo='INGRESO'
+                        THEN monto
+                        ELSE 0
+                    END
+                ),
+                0
+            )
+
+            -
+
+            COALESCE(
+                SUM(
+                    CASE
+                        WHEN tipo='GASTO'
+                        THEN monto
+                        ELSE 0
+                    END
+                ),
+                0
+            )
+
+            AS saldo
+
+        FROM gastos.movimientos
+
+        WHERE usuario_id =
+        {st.session_state["user_id"]}
+        """
+    )
+
+    return float(
+        df.iloc[0]["saldo"]
+    )
+
+
 def pantalla_asistente():
 
     st.title("🤖 Asistente IA")
 
-    st.write(
+    st.markdown(
         """
-Ejemplos:
+### Ejemplos
 
-Gasté 350 en gasolina
-
-Pagué 900 de internet
-
-Comí tacos por 180
-
-Recibí 12000 de salario
+- Gasté 350 en gasolina
+- Comí tacos por 180
+- Pagué 900 de internet
+- Recibí 12000 de salario
 """
     )
 
@@ -173,26 +221,48 @@ Recibí 12000 de salario
 
         try:
 
-            st.write("Iniciando procesamiento...")
-
             resultado = interpretar_movimiento(
                 texto
             )
-
-            st.write("JSON interpretado:")
-            st.json(resultado)
 
             guardar_movimiento(
                 resultado,
                 texto
             )
 
-            st.success(
-                "✅ Movimiento registrado correctamente"
-            )
+            saldo = obtener_saldo()
+
+            if resultado["tipo"] == "GASTO":
+
+                mensaje = f"""
+✅ Registré un gasto de ${resultado['monto']:,.2f}
+
+📂 Categoría: {resultado['categoria']}
+
+📝 Concepto: {resultado['concepto']}
+
+💰 Disponible actual: ${saldo:,.2f}
+"""
+
+            else:
+
+                mensaje = f"""
+✅ Registré un ingreso de ${resultado['monto']:,.2f}
+
+📝 Concepto: {resultado['concepto']}
+
+💰 Disponible actual: ${saldo:,.2f}
+"""
+
+            st.success(mensaje)
+
+            with st.expander(
+                "Ver detalle IA"
+            ):
+                st.json(resultado)
 
         except Exception as e:
 
             st.error(
-                f"ERROR: {str(e)}"
+                f"Error: {str(e)}"
             )
