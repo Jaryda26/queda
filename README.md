@@ -1,1 +1,1 @@
-V6 Dashboard con tarjetas estilo SaaS
+V7 Dashboard Ejecutivo, Categorias y Plotly
