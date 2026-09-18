@@ -235,26 +235,41 @@ def pantalla_asistente():
             if resultado["tipo"] == "GASTO":
 
                 mensaje = f"""
-✅ Registré un gasto de ${resultado['monto']:,.2f}
+✅ Registré un gasto de
+${resultado['monto']:,.2f}
 
-📂 Categoría: {resultado['categoria']}
+📂 Categoría:
+{resultado['categoria']}
 
-📝 Concepto: {resultado['concepto']}
+📝 Concepto:
+{resultado['concepto']}
 
-💰 Disponible actual: ${saldo:,.2f}
+💰 Disponible actual:
+${saldo:,.2f}
 """
 
             else:
 
                 mensaje = f"""
-✅ Registré un ingreso de ${resultado['monto']:,.2f}
+✅ Registré un ingreso de
+${resultado['monto']:,.2f}
 
-📝 Concepto: {resultado['concepto']}
+📝 Concepto:
+{resultado['concepto']}
 
-💰 Disponible actual: ${saldo:,.2f}
+💰 Disponible actual:
+${saldo:,.2f}
 """
 
-            st.success(mensaje)
+            st.success(
+                mensaje
+            )
+
+        except Exception as e:
+
+            st.error(
+                f"Error: {str(e)}"
+            )
 
             with st.expander(
                 "Ver detalle IA"
