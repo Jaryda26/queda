@@ -12,7 +12,7 @@ if "user_id" not in st.session_state:
     pantalla_login() if op=="Login" else pantalla_registro()
 else:
     st.sidebar.success(st.session_state.get("nombre",""))
-    op=st.sidebar.radio("Menú",["Dashboard","Movimientos","Historial","Presupuesto"])
+    op=st.sidebar.radio("Menú",["Dashboard","Movimientos","Historial","Presupuesto","Asistente IA"])
     if st.sidebar.button("Cerrar Sesión"):
         st.session_state.clear(); st.rerun()
     {'Dashboard':pantalla_dashboard,'Movimientos':pantalla_movimientos,'Historial':pantalla_historial,'Presupuesto':pantalla_presupuesto}[op]()
