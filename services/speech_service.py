@@ -22,4 +22,18 @@ def speech_to_text(audio_file):
 
     result = recognizer.recognize_once()
 
-    return result.text
+    if result.reason == speechsdk.ResultReason.RecognizedSpeech:
+
+        return result.text
+
+    if result.reason == speechsdk.ResultReason.NoMatch:
+
+        return "NO_MATCH"
+
+    if result.reason == speechsdk.ResultReason.Canceled:
+
+        detalles = result.cancellation_details
+
+        return f"ERROR: {detalles.reason}"
+
+    return "SIN_RESULTADO"

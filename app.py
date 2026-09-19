@@ -9,6 +9,7 @@ from views.presupuesto import pantalla_presupuesto
 from views.asistente import pantalla_asistente
 from views.voz import pantalla_voz
 from views.home import pantalla_home
+from views.recordatorio import pantalla_recordatorios
 
 st.set_page_config(
     page_title="Queda",
@@ -56,6 +57,7 @@ else:
                 "Movimientos",
                 "Historial",
                 "Presupuesto",
+                "Recordatorios",
                 "Asistente IA",
                 "Captura Voz"
             ]
@@ -69,23 +71,13 @@ else:
             st.rerun()
 
         paginas = {
-            "Dashboard":
-                pantalla_dashboard,
-
-            "Movimientos":
-                pantalla_movimientos,
-
-            "Historial":
-                pantalla_historial,
-
-            "Presupuesto":
-                pantalla_presupuesto,
-
-            "Asistente IA":
-                pantalla_asistente,
-
-            "Captura Voz":
-                pantalla_voz
+            "Dashboard": pantalla_dashboard,
+            "Movimientos": pantalla_movimientos,
+            "Historial": pantalla_historial,
+            "Presupuesto": pantalla_presupuesto,
+            "Recordatorios": pantalla_recordatorios,
+            "Asistente IA": pantalla_asistente,
+            "Captura Voz": pantalla_voz
         }
 
         paginas[op]()

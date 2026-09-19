@@ -2,7 +2,6 @@ import tempfile
 import streamlit as st
 
 from audio_recorder_streamlit import audio_recorder
-
 from services.speech_service import speech_to_text
 
 
@@ -15,8 +14,6 @@ def pantalla_voz():
 Primer paso:
 
 Vamos a convertir voz en texto.
-
-Todavía NO se registra gasto.
 """
     )
 
@@ -31,30 +28,16 @@ Todavía NO se registra gasto.
 
             tmp.write(audio_bytes)
 
-            audio_file = tmp.name
+            archivo_audio = tmp.name
 
-        st.success(
-            "✅ Audio capturado"
+        st.success("✅ Audio capturado")
+
+        texto = speech_to_text(
+            archivo_audio
         )
 
-        try:
+        st.success("✅ Respuesta Speech recibida")
 
-            texto = speech_to_text(
-                audio_file
-            )
+        st.write("Resultado recibido:")
 
-            st.success(
-                "✅ Texto reconocido"
-            )
-
-            st.text_area(
-                "Resultado",
-                texto,
-                height=120
-            )
-
-        except Exception as e:
-
-            st.error(
-                f"Error Speech: {str(e)}"
-            )
+        st.code(texto)
