@@ -48,7 +48,18 @@ else:
             ""
         )
     )
+    st.sidebar.markdown("---")
 
+    if st.sidebar.button("🎤 Hablar con Queda"):
+
+            st.session_state["pagina_actual"] = (
+                "Captura Voz"
+            )
+
+            st.rerun()
+
+    st.sidebar.markdown("---")
+    
     menu = [
         "🏠 Inicio",
         "Dashboard",

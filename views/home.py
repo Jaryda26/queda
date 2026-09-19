@@ -2,6 +2,39 @@ import streamlit as st
 from datetime import date
 
 from db import obtener_dataframe
+from db import ejecutar_query
+
+
+def registrar_pago(uid, descripcion, monto):
+
+    ejecutar_query(
+        """
+        INSERT INTO gastos.movimientos
+        (
+            usuario_id,
+            tipo,
+            categoria,
+            concepto,
+            monto,
+            texto_original
+        )
+        VALUES
+        (
+            :uid,
+            'GASTO',
+            'Recordatorio',
+            :concepto,
+            :monto,
+            :texto
+        )
+        """,
+        {
+            "uid": uid,
+            "concepto": descripcion,
+            "monto": monto,
+            "texto": f"Pago automático de {descripcion}"
+        }
+    )
 
 
 def pantalla_home():
@@ -17,28 +50,25 @@ def pantalla_home():
     df = obtener_dataframe(
         f"""
         SELECT
+            id,
             descripcion,
             monto,
             dia_vencimiento,
-            dias_anticipacion
+            dias_anticipacion,
+            pagado
         FROM gastos.recordatorios
         WHERE usuario_id = {uid}
-        AND activo = TRUE
         AND pagado = FALSE
         ORDER BY dia_vencimiento
         """
     )
 
-    recordatorios_mostrados = 0
+    encontrados = 0
 
     for _, row in df.iterrows():
 
-        dia_vencimiento = int(
-            row["dia_vencimiento"]
-        )
-
         dias_restantes = (
-            dia_vencimiento - hoy.day
+            int(row["dia_vencimiento"]) - hoy.day
         )
 
         if dias_restantes < 0:
@@ -49,7 +79,7 @@ def pantalla_home():
         ):
             continue
 
-        recordatorios_mostrados += 1
+        encontrados += 1
 
         if dias_restantes <= 1:
 
@@ -57,8 +87,7 @@ def pantalla_home():
                 f"""
 🔴 {row['descripcion']}
 
-Monto:
-${float(row['monto']):,.2f}
+Monto: ${float(row['monto']):,.2f}
 
 Vence mañana o hoy.
 """
@@ -70,8 +99,7 @@ Vence mañana o hoy.
                 f"""
 🟡 {row['descripcion']}
 
-Monto:
-${float(row['monto']):,.2f}
+Monto: ${float(row['monto']):,.2f}
 
 Vence en {dias_restantes} días.
 """
@@ -83,14 +111,57 @@ Vence en {dias_restantes} días.
                 f"""
 🔔 {row['descripcion']}
 
-Monto:
-${float(row['monto']):,.2f}
+Monto: ${float(row['monto']):,.2f}
 
 Vence en {dias_restantes} días.
 """
             )
 
-    if recordatorios_mostrados == 0:
+        c1, c2 = st.columns(2)
+
+        with c1:
+
+            if st.button(
+                "✅ Ya lo pagué",
+                key=f"pagado_{row['id']}"
+            ):
+
+                registrar_pago(
+                    uid,
+                    row["descripcion"],
+                    float(row["monto"])
+                )
+
+                ejecutar_query(
+                    """
+                    UPDATE gastos.recordatorios
+                    SET
+                        pagado = TRUE,
+                        fecha_ultimo_pago = CURRENT_DATE
+                    WHERE id = :id
+                    """,
+                    {
+                        "id": int(row["id"])
+                    }
+                )
+
+                st.success(
+                    "Pago registrado correctamente."
+                )
+
+                st.rerun()
+
+        with c2:
+
+            if st.button(
+                "⏰ Recordarme después",
+                key=f"recordar_{row['id']}"
+            ):
+                st.info(
+                    "Te lo volveré a mostrar."
+                )
+
+    if encontrados == 0:
 
         st.success(
             "✅ No tienes recordatorios pendientes."
@@ -98,6 +169,8 @@ Vence en {dias_restantes} días.
 
     if st.button("Entendido"):
 
-        st.session_state["home_vista"] = False
+        st.session_state["pagina_actual"] = (
+            "Dashboard"
+        )
 
         st.rerun()
