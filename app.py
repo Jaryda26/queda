@@ -9,7 +9,7 @@ from views.presupuesto import pantalla_presupuesto
 from views.asistente import pantalla_asistente
 from views.voz import pantalla_voz
 from views.home import pantalla_home
-from views.recordatorio import pantalla_recordatorios
+from views.recordatorios import pantalla_recordatorios
 
 st.set_page_config(
     page_title="Queda",
