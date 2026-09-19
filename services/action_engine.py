@@ -7,7 +7,6 @@ from db import ejecutar_query
 from db import obtener_dataframe
 
 from services.intent_engine import detectar_intencion
-from services.action_engine import ejecutar_accion
 
 
 AZURE_OPENAI_ENDPOINT = st.secrets["AZURE_OPENAI_ENDPOINT"]
