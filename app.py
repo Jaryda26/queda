@@ -1,10 +1,9 @@
 import streamlit as st
 
+from audio_recorder_streamlit import audio_recorder
 from views.login import pantalla_login
 from views.registro import pantalla_registro
-
 from views.home import pantalla_home
-
 from views.dashboard import pantalla_dashboard
 from views.movimientos import pantalla_movimientos
 from views.historial import pantalla_historial
@@ -19,14 +18,18 @@ st.set_page_config(
     layout="wide"
 )
 
-# Primera pantalla después del login
+# Página inicial después del login
 if "pagina_actual" not in st.session_state:
     st.session_state["pagina_actual"] = "🏠 Inicio"
 
-# Usuario NO autenticado
+# Audio global
+if "audio_global" not in st.session_state:
+    st.session_state["audio_global"] = None
+
+# USUARIO NO AUTENTICADO
 if "user_id" not in st.session_state:
 
-    op = st.sidebar.radio(
+    opcion = st.sidebar.radio(
         "Acceso",
         [
             "Login",
@@ -34,12 +37,12 @@ if "user_id" not in st.session_state:
         ]
     )
 
-    if op == "Login":
+    if opcion == "Login":
         pantalla_login()
     else:
         pantalla_registro()
 
-# Usuario autenticado
+# USUARIO AUTENTICADO
 else:
 
     st.sidebar.success(
@@ -48,18 +51,33 @@ else:
             ""
         )
     )
-    st.sidebar.markdown("---")
-
-    if st.sidebar.button("🎤 Hablar con Queda"):
-
-            st.session_state["pagina_actual"] = (
-                "Captura Voz"
-            )
-
-            st.rerun()
 
     st.sidebar.markdown("---")
-    
+
+    st.sidebar.markdown("### 🎤 Queda")
+
+    audio_bytes = audio_recorder(
+        text="",
+        recording_color="#e74c3c",
+        neutral_color="#2c3e50",
+        icon_name="microphone",
+        icon_size="2x"
+    )
+
+    if audio_bytes is not None:
+
+        st.session_state["audio_global"] = (
+            audio_bytes
+        )
+
+        st.session_state["pagina_actual"] = (
+            "Captura Voz"
+        )
+
+        st.rerun()
+
+    st.sidebar.markdown("---")
+
     menu = [
         "🏠 Inicio",
         "Dashboard",
@@ -72,22 +90,30 @@ else:
     ]
 
     try:
+
         indice = menu.index(
             st.session_state["pagina_actual"]
         )
+
     except Exception:
+
         indice = 0
 
-    op = st.sidebar.radio(
+    opcion = st.sidebar.radio(
         "Menú",
         menu,
         index=indice
     )
 
-    st.session_state["pagina_actual"] = op
+    st.session_state["pagina_actual"] = (
+        opcion
+    )
+
+    st.sidebar.markdown("---")
 
     if st.sidebar.button(
-        "Cerrar Sesión"
+        "Cerrar Sesión",
+        use_container_width=True
     ):
 
         st.session_state.clear()
@@ -95,14 +121,30 @@ else:
         st.rerun()
 
     paginas = {
-        "🏠 Inicio": pantalla_home,
-        "Dashboard": pantalla_dashboard,
-        "Movimientos": pantalla_movimientos,
-        "Historial": pantalla_historial,
-        "Presupuesto": pantalla_presupuesto,
-        "Recordatorios": pantalla_recordatorios,
-        "Asistente IA": pantalla_asistente,
-        "Captura Voz": pantalla_voz
+
+        "🏠 Inicio":
+            pantalla_home,
+
+        "Dashboard":
+            pantalla_dashboard,
+
+        "Movimientos":
+            pantalla_movimientos,
+
+        "Historial":
+            pantalla_historial,
+
+        "Presupuesto":
+            pantalla_presupuesto,
+
+        "Recordatorios":
+            pantalla_recordatorios,
+
+        "Asistente IA":
+            pantalla_asistente,
+
+        "Captura Voz":
+            pantalla_voz
     }
 
-    paginas[op]()
+    paginas[opcion]()

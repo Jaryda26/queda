@@ -81,48 +81,29 @@ def pantalla_home():
 
         encontrados += 1
 
+        nivel = "🔔"
+
         if dias_restantes <= 1:
-
-            st.error(
-                f"""
-🔴 {row['descripcion']}
-
-Monto: ${float(row['monto']):,.2f}
-
-Vence mañana o hoy.
-"""
-            )
-
+            nivel = "🔴"
         elif dias_restantes <= 3:
+            nivel = "🟡"
 
-            st.warning(
-                f"""
-🟡 {row['descripcion']}
+        st.markdown(
+            f"""
+### {nivel} {row['descripcion']}
 
-Monto: ${float(row['monto']):,.2f}
+💰 **Monto:** ${float(row['monto']):,.2f}
 
-Vence en {dias_restantes} días.
+📅 **Vence en:** {dias_restantes} día(s)
 """
-            )
+        )
 
-        else:
-
-            st.info(
-                f"""
-🔔 {row['descripcion']}
-
-Monto: ${float(row['monto']):,.2f}
-
-Vence en {dias_restantes} días.
-"""
-            )
-
-        c1, c2 = st.columns(2)
+        c1, c2, c3 = st.columns([1, 1, 8])
 
         with c1:
 
             if st.button(
-                "✅ Ya lo pagué",
+                "✅ Pagado",
                 key=f"pagado_{row['id']}"
             ):
 
@@ -146,7 +127,13 @@ Vence en {dias_restantes} días.
                 )
 
                 st.success(
-                    "Pago registrado correctamente."
+                    f"""
+✅ Registré el pago de:
+
+{row['descripcion']}
+
+💰 ${float(row['monto']):,.2f}
+"""
                 )
 
                 st.rerun()
@@ -154,12 +141,15 @@ Vence en {dias_restantes} días.
         with c2:
 
             if st.button(
-                "⏰ Recordarme después",
-                key=f"recordar_{row['id']}"
+                "⏰ Después",
+                key=f"despues_{row['id']}"
             ):
+
                 st.info(
-                    "Te lo volveré a mostrar."
+                    "Te lo recordaré nuevamente."
                 )
+
+        st.markdown("---")
 
     if encontrados == 0:
 
