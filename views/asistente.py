@@ -1,5 +1,6 @@
 import json
 import streamlit as st
+from services.action_engine import ejecutar_accion
 
 from openai import OpenAI
 
@@ -16,85 +17,56 @@ client = OpenAI(
 )
 
 PROMPT = """
-Eres un asistente financiero.
+Eres el motor principal de Queda.
 
-Analiza el texto del usuario.
+Devuelve únicamente JSON.
 
-Debes devolver únicamente JSON válido.
+Acciones válidas:
 
-Formato:
-
-{
-  "tipo":"INGRESO|GASTO",
-  "categoria":"",
-  "concepto":"",
-  "origen_ingreso":"",
-  "monto":0
-}
-
-Categorías válidas:
-
-Gasolina
-Comida
-Servicios
-Transporte
-Salud
-Entretenimiento
-Otros
-Ingreso
-
-Orígenes de ingreso válidos:
-
-Nomina
-Honorarios
-Comisiones
-Venta
-Transferencia
-Otro
+REGISTRAR_GASTO
+REGISTRAR_INGRESO
+PAGAR_RECORDATORIO
+ABRIR_DASHBOARD
+ABRIR_RECORDATORIOS
 
 Ejemplos:
 
-Gasté 350 en gasolina
+Compré una coca de 25 pesos
 
 {
-  "tipo":"GASTO",
-  "categoria":"Gasolina",
-  "concepto":"Gasolina",
-  "origen_ingreso":"",
-  "monto":350
+ "accion":"REGISTRAR_GASTO",
+ "categoria":"Comida",
+ "concepto":"Coca",
+ "monto":25
 }
 
-Pagué 900 de internet
+Me depositaron 12000 de nómina
 
 {
-  "tipo":"GASTO",
-  "categoria":"Servicios",
-  "concepto":"Internet",
-  "origen_ingreso":"",
-  "monto":900
+ "accion":"REGISTRAR_INGRESO",
+ "concepto":"Nomina",
+ "origen_ingreso":"Nomina",
+ "monto":12000
 }
 
-Recibí 12000 de nómina
+Ya pagué Sears
 
 {
-  "tipo":"INGRESO",
-  "categoria":"Ingreso",
-  "concepto":"Nomina",
-  "origen_ingreso":"Nomina",
-  "monto":12000
+ "accion":"PAGAR_RECORDATORIO",
+ "descripcion":"SEARS"
 }
 
-Vendí una bicicleta por 3000
+Muéstrame estadísticas
 
 {
-  "tipo":"INGRESO",
-  "categoria":"Ingreso",
-  "concepto":"Venta",
-  "origen_ingreso":"Venta",
-  "monto":3000
+ "accion":"ABRIR_DASHBOARD"
 }
 
-Devuelve únicamente JSON.
+Qué tengo pendiente
+
+{
+ "accion":"ABRIR_RECORDATORIOS"
+}
 """
 
 
@@ -310,9 +282,14 @@ def pantalla_asistente():
                 texto
             )
 
-            guardar_movimiento(
-                resultado,
-                texto
+            resultado["texto_original"] = texto
+
+            mensaje = ejecutar_accion(
+                resultado
+            )
+
+            st.success(
+                mensaje
             )
 
             saldo = obtener_saldo()
