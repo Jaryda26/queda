@@ -6,118 +6,73 @@ from db import obtener_dataframe
 
 def ejecutar_accion(resultado):
 
-    accion = resultado.get("accion", "").upper()
+    accion = resultado.get(
+        "accion",
+        ""
+    ).upper()
 
     if accion == "ABRIR_DASHBOARD":
 
-        st.session_state["pagina_actual"] = "Dashboard"
+        st.session_state["pagina_actual"] = (
+            "Dashboard"
+        )
 
         return "📊 Abriendo Dashboard"
 
     if accion == "ABRIR_RECORDATORIOS":
 
-        st.session_state["pagina_actual"] = "Recordatorios"
+        st.session_state["pagina_actual"] = (
+            "Recordatorios"
+        )
 
         return "🔔 Abriendo Recordatorios"
 
-    if accion == "REGISTRAR_GASTO":
+    if accion == "POSPONER_RECORDATORIO":
 
-        monto = float(
-            resultado.get("monto", 0)
+        descripcion = resultado.get(
+            "descripcion",
+            ""
         )
 
-        ejecutar_query(
+        recordatorios = obtener_dataframe(
+            f"""
+            SELECT *
+            FROM gastos.recordatorios
+            WHERE usuario_id =
+            {st.session_state["user_id"]}
+            AND pagado = FALSE
             """
-            INSERT INTO gastos.movimientos
-            (
-                usuario_id,
-                tipo,
-                categoria,
-                concepto,
-                monto,
-                texto_original
-            )
-            VALUES
-            (
-                :uid,
-                :tipo,
-                :categoria,
-                :concepto,
-                :monto,
-                :texto_original
-            )
-            """,
-            {
-                "uid": st.session_state["user_id"],
-                "tipo": "GASTO",
-                "categoria": resultado.get(
-                    "categoria",
-                    "Otros"
-                ),
-                "concepto": resultado.get(
-                    "concepto",
-                    "Gasto"
-                ),
-                "monto": monto,
-                "texto_original": resultado.get(
-                    "texto_original",
-                    ""
-                )
-            }
         )
 
-        return f"✅ Gasto registrado por ${monto:,.2f}"
+        if recordatorios.empty:
 
-    if accion == "REGISTRAR_INGRESO":
-
-        monto = float(
-            resultado.get("monto", 0)
-        )
-
-        ejecutar_query(
-            """
-            INSERT INTO gastos.movimientos
-            (
-                usuario_id,
-                tipo,
-                categoria,
-                concepto,
-                monto,
-                texto_original,
-                origen_ingreso
+            return (
+                "⚠ No encontré "
+                "recordatorios pendientes."
             )
-            VALUES
-            (
-                :uid,
-                :tipo,
-                :categoria,
-                :concepto,
-                :monto,
-                :texto_original,
-                :origen_ingreso
-            )
-            """,
-            {
-                "uid": st.session_state["user_id"],
-                "tipo": "INGRESO",
-                "categoria": "Ingreso",
-                "concepto": resultado.get(
-                    "concepto",
-                    "Ingreso"
-                ),
-                "monto": monto,
-                "texto_original": resultado.get(
-                    "texto_original",
-                    ""
-                ),
-                "origen_ingreso": resultado.get(
-                    "origen_ingreso",
-                    "Otro"
-                )
-            }
-        )
 
-        return f"✅ Ingreso registrado por ${monto:,.2f}"
+        coincidencia = recordatorios[
+            recordatorios["descripcion"]
+            .str.upper()
+            .str.contains(
+                descripcion.upper(),
+                na=False
+            )
+        ]
+
+        if coincidencia.empty:
+
+            return (
+                f"⚠ No encontré "
+                f"{descripcion}"
+            )
+
+        row = coincidencia.iloc[0]
+
+        return (
+            f"⏰ Te recordaré después "
+            f"{row['descripcion']}"
+        )
 
     if accion == "PAGAR_RECORDATORIO":
 
@@ -126,21 +81,14 @@ def ejecutar_accion(resultado):
             ""
         )
 
-        sql = """
-        SELECT
-            id,
-            descripcion,
-            monto
-        FROM gastos.recordatorios
-        WHERE usuario_id = :uid
-        AND pagado = FALSE
-        """
-
         recordatorios = obtener_dataframe(
-            sql.replace(
-                ":uid",
-                str(st.session_state["user_id"])
-            )
+            f"""
+            SELECT *
+            FROM gastos.recordatorios
+            WHERE usuario_id =
+            {st.session_state["user_id"]}
+            AND pagado = FALSE
+            """
         )
 
         if recordatorios.empty:
@@ -151,9 +99,9 @@ def ejecutar_accion(resultado):
             )
 
         coincidencia = recordatorios[
-            recordatorios[
-                "descripcion"
-            ].str.upper().str.contains(
+            recordatorios["descripcion"]
+            .str.upper()
+            .str.contains(
                 descripcion.upper(),
                 na=False
             )
@@ -162,7 +110,7 @@ def ejecutar_accion(resultado):
         if coincidencia.empty:
 
             return (
-                "⚠ No encontré "
+                f"⚠ No encontré "
                 f"{descripcion}"
             )
 
@@ -173,7 +121,8 @@ def ejecutar_accion(resultado):
             UPDATE gastos.recordatorios
             SET
                 pagado = TRUE,
-                fecha_ultimo_pago = CURRENT_DATE
+                fecha_ultimo_pago =
+                CURRENT_DATE
             WHERE id = :id
             """,
             {
@@ -199,14 +148,20 @@ def ejecutar_accion(resultado):
                 'Recordatorio',
                 :concepto,
                 :monto,
-                :texto_original
+                :texto
             )
             """,
             {
-                "uid": st.session_state["user_id"],
-                "concepto": row["descripcion"],
-                "monto": float(row["monto"]),
-                "texto_original":
+                "uid":
+                    st.session_state["user_id"],
+
+                "concepto":
+                    row["descripcion"],
+
+                "monto":
+                    float(row["monto"]),
+
+                "texto":
                     f"Pago automático de {row['descripcion']}"
             }
         )
@@ -214,6 +169,138 @@ def ejecutar_accion(resultado):
         return (
             f"✅ Marqué como pagado "
             f"{row['descripcion']}"
+        )
+
+    if accion == "REGISTRAR_GASTO":
+
+        ejecutar_query(
+            """
+            INSERT INTO gastos.movimientos
+            (
+                usuario_id,
+                tipo,
+                categoria,
+                concepto,
+                monto,
+                texto_original
+            )
+            VALUES
+            (
+                :uid,
+                'GASTO',
+                :categoria,
+                :concepto,
+                :monto,
+                :texto
+            )
+            """,
+            {
+                "uid":
+                    st.session_state["user_id"],
+
+                "categoria":
+                    resultado.get(
+                        "categoria",
+                        "Otros"
+                    ),
+
+                "concepto":
+                    resultado.get(
+                        "concepto",
+                        "Gasto"
+                    ),
+
+                "monto":
+                    resultado.get(
+                        "monto",
+                        0
+                    ),
+
+                "texto":
+                    resultado.get(
+                        "texto_original",
+                        ""
+                    )
+            }
+        )
+
+        monto = float(
+            resultado.get(
+                "monto",
+                0
+            )
+        )
+
+        return (
+            f"✅ Gasto registrado "
+            f"${monto:,.2f}"
+        )
+
+    if accion == "REGISTRAR_INGRESO":
+
+        ejecutar_query(
+            """
+            INSERT INTO gastos.movimientos
+            (
+                usuario_id,
+                tipo,
+                categoria,
+                concepto,
+                monto,
+                texto_original,
+                origen_ingreso
+            )
+            VALUES
+            (
+                :uid,
+                'INGRESO',
+                'Ingreso',
+                :concepto,
+                :monto,
+                :texto,
+                :origen
+            )
+            """,
+            {
+                "uid":
+                    st.session_state["user_id"],
+
+                "concepto":
+                    resultado.get(
+                        "concepto",
+                        "Ingreso"
+                    ),
+
+                "monto":
+                    resultado.get(
+                        "monto",
+                        0
+                    ),
+
+                "texto":
+                    resultado.get(
+                        "texto_original",
+                        ""
+                    ),
+
+                "origen":
+                    resultado.get(
+                        "origen_ingreso",
+                        "Otro"
+                    )
+            }
+        )
+
+        monto = float(
+            resultado.get(
+                "monto",
+                0
+            )
+        )
+
+        return (
+            f"✅ Ingreso registrado "
+            f"${monto:,.2f}"
         )
 
     return "⚠ Acción no reconocida"

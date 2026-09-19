@@ -32,6 +32,17 @@ def pantalla_recordatorios():
         [7, 3, 1]
     )
 
+    frecuencia = st.selectbox(
+        "Frecuencia",
+        [
+            "UNICO",
+            "SEMANAL",
+            "QUINCENAL",
+            "MENSUAL",
+            "ANUAL"
+        ]
+    )
+
     if st.button(
         "Guardar Recordatorio"
     ):
@@ -44,7 +55,8 @@ def pantalla_recordatorios():
                 descripcion,
                 monto,
                 dia_vencimiento,
-                dias_anticipacion
+                dias_anticipacion,
+                frecuencia
             )
             VALUES
             (
@@ -52,7 +64,8 @@ def pantalla_recordatorios():
                 :descripcion,
                 :monto,
                 :dia,
-                :anticipacion
+                :anticipacion,
+                :frecuencia
             )
             """,
             {
@@ -60,7 +73,8 @@ def pantalla_recordatorios():
                 "descripcion": descripcion,
                 "monto": monto,
                 "dia": dia_vencimiento,
-                "anticipacion": dias_anticipacion
+                "anticipacion": dias_anticipacion,
+                "frecuencia": frecuencia
             }
         )
 
@@ -84,6 +98,7 @@ def pantalla_recordatorios():
             monto,
             dia_vencimiento,
             dias_anticipacion,
+            frecuencia,
             pagado
         FROM gastos.recordatorios
         WHERE usuario_id = {uid}
@@ -111,7 +126,7 @@ def pantalla_recordatorios():
             f"{row['descripcion']} - {estado}"
         ):
 
-            nuevo_descripcion = st.text_input(
+            nueva_descripcion = st.text_input(
                 "Descripción",
                 value=row["descripcion"],
                 key=f"desc_{row['id']}"
@@ -136,10 +151,37 @@ def pantalla_recordatorios():
                 [7, 3, 1],
                 index=[7, 3, 1].index(
                     int(row["dias_anticipacion"])
-                )
-                if int(row["dias_anticipacion"]) in [7, 3, 1]
-                else 0,
+                ),
                 key=f"anti_{row['id']}"
+            )
+
+            nueva_frecuencia = st.selectbox(
+                "Frecuencia",
+                [
+                    "UNICO",
+                    "SEMANAL",
+                    "QUINCENAL",
+                    "MENSUAL",
+                    "ANUAL"
+                ],
+                index=[
+                    "UNICO",
+                    "SEMANAL",
+                    "QUINCENAL",
+                    "MENSUAL",
+                    "ANUAL"
+                ].index(
+                    str(row["frecuencia"])
+                )
+                if str(row["frecuencia"]) in [
+                    "UNICO",
+                    "SEMANAL",
+                    "QUINCENAL",
+                    "MENSUAL",
+                    "ANUAL"
+                ]
+                else 3,
+                key=f"freq_{row['id']}"
             )
 
             c1, c2, c3 = st.columns(3)
@@ -158,18 +200,21 @@ def pantalla_recordatorios():
                             descripcion=:descripcion,
                             monto=:monto,
                             dia_vencimiento=:dia,
-                            dias_anticipacion=:anticipacion
+                            dias_anticipacion=:anticipacion,
+                            frecuencia=:frecuencia
                         WHERE id=:id
                         """,
                         {
                             "descripcion":
-                                nuevo_descripcion,
+                                nueva_descripcion,
                             "monto":
                                 nuevo_monto,
                             "dia":
                                 nuevo_dia,
                             "anticipacion":
                                 nueva_anticipacion,
+                            "frecuencia":
+                                nueva_frecuencia,
                             "id":
                                 int(row["id"])
                         }
@@ -190,42 +235,81 @@ def pantalla_recordatorios():
                         key=f"pay_{row['id']}"
                     ):
 
-                        ejecutar_query(
-                            """
-                            UPDATE gastos.recordatorios
-                            SET
-                                pagado=TRUE,
-                                fecha_ultimo_pago=CURRENT_DATE
-                            WHERE id=:id
-                            """,
-                            {
-                                "id":
-                                    int(row["id"])
-                            }
-                        )
+                        if (
+                            str(row["frecuencia"])
+                            == "UNICO"
+                        ):
+
+                            ejecutar_query(
+                                """
+                                UPDATE gastos.recordatorios
+                                SET
+                                    pagado = TRUE,
+                                    fecha_ultimo_pago =
+                                    CURRENT_DATE
+                                WHERE id = :id
+                                """,
+                                {
+                                    "id":
+                                        int(row["id"])
+                                }
+                            )
+
+                        else:
+
+                            ejecutar_query(
+                                """
+                                UPDATE gastos.recordatorios
+                                SET
+                                    fecha_ultimo_pago =
+                                    CURRENT_DATE,
+                                    pagado = FALSE
+                                WHERE id = :id
+                                """,
+                                {
+                                    "id":
+                                        int(row["id"])
+                                }
+                            )
 
                         st.rerun()
 
                 else:
 
-                    if st.button(
-                        "↩ Reabrir",
-                        key=f"open_{row['id']}"
-                    ):
+                    if str(row["frecuencia"]) == "UNICO":
 
-                        ejecutar_query(
-                            """
-                            UPDATE gastos.recordatorios
-                            SET pagado=FALSE
-                            WHERE id=:id
-                            """,
-                            {
+                        if st.button(
+                            "↩ Reabrir",
+                            key=f"open_{row['id']}"
+                            ):
+
+                            ejecutar_query(
+                                """
+                                UPDATE gastos.recordatorios
+                                SET pagado = FALSE
+                                WHERE id = :id
+                                """,
+                                {
                                 "id":
                                     int(row["id"])
-                            }
-                        )
+                                }
+                            )
 
-                        st.rerun()
+                            st.rerun()
+
+                    else:
+
+                        st.success(
+                            f"""
+                ✅ Pago recurrente
+
+                Frecuencia:
+                {row['frecuencia']}
+
+                Seguirá activo para
+                el siguiente periodo.
+                """
+                        )
 
             with c3:
 
@@ -236,9 +320,9 @@ def pantalla_recordatorios():
 
                     ejecutar_query(
                         """
-                        DELETE
-                        FROM gastos.recordatorios
-                        WHERE id=:id
+                        DELETE FROM
+                        gastos.recordatorios
+                        WHERE id = :id
                         """,
                         {
                             "id":
