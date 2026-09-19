@@ -1,8 +1,10 @@
 import streamlit as st
 
 from audio_recorder_streamlit import audio_recorder
+
 from views.login import pantalla_login
 from views.registro import pantalla_registro
+
 from views.home import pantalla_home
 from views.dashboard import pantalla_dashboard
 from views.movimientos import pantalla_movimientos
@@ -11,6 +13,7 @@ from views.presupuesto import pantalla_presupuesto
 from views.recordatorios import pantalla_recordatorios
 from views.asistente import pantalla_asistente
 from views.voz import pantalla_voz
+
 
 st.set_page_config(
     page_title="Queda",
@@ -25,6 +28,7 @@ if "pagina_actual" not in st.session_state:
 # Audio global
 if "audio_global" not in st.session_state:
     st.session_state["audio_global"] = None
+
 
 # USUARIO NO AUTENTICADO
 if "user_id" not in st.session_state:
@@ -41,6 +45,7 @@ if "user_id" not in st.session_state:
         pantalla_login()
     else:
         pantalla_registro()
+
 
 # USUARIO AUTENTICADO
 else:
@@ -64,17 +69,13 @@ else:
         icon_size="2x"
     )
 
-    if audio_bytes is not None:
+    if audio_bytes:
 
-        st.session_state["audio_global"] = (
-            audio_bytes
-        )
+        st.session_state["audio_global"] = audio_bytes
 
-        st.session_state["pagina_actual"] = (
-            "Captura Voz"
-        )
+        pantalla_voz()
 
-        st.rerun()
+        st.stop()
 
     st.sidebar.markdown("---")
 
@@ -85,8 +86,7 @@ else:
         "Historial",
         "Presupuesto",
         "Recordatorios",
-        "Asistente IA",
-        "Captura Voz"
+        "Asistente IA"
     ]
 
     try:
@@ -105,9 +105,7 @@ else:
         index=indice
     )
 
-    st.session_state["pagina_actual"] = (
-        opcion
-    )
+    st.session_state["pagina_actual"] = opcion
 
     st.sidebar.markdown("---")
 
@@ -141,10 +139,7 @@ else:
             pantalla_recordatorios,
 
         "Asistente IA":
-            pantalla_asistente,
-
-        "Captura Voz":
-            pantalla_voz
+            pantalla_asistente
     }
 
     paginas[opcion]()
