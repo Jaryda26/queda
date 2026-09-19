@@ -62,13 +62,27 @@ else:
         icon_size="2x"
     )
 
+    # SOLO guarda el audio
     if audio_bytes:
 
         st.session_state["audio_global"] = audio_bytes
 
-        st.session_state["pagina_actual"] = "Voz"
+        try:
 
-        st.rerun()
+            mensaje = pantalla_voz()
+
+            if mensaje:
+                st.sidebar.success(
+                    mensaje
+                )
+
+        except Exception as e:
+
+            st.sidebar.error(
+                str(e)
+            )
+
+        st.session_state["audio_global"] = None
 
     st.sidebar.markdown("---")
 
@@ -83,13 +97,10 @@ else:
     ]
 
     try:
-
         indice = menu.index(
             st.session_state["pagina_actual"]
         )
-
     except Exception:
-
         indice = 0
 
     opcion = st.sidebar.radio(
@@ -97,14 +108,6 @@ else:
         menu,
         index=indice
     )
-
-    if st.session_state["pagina_actual"] == "Voz":
-
-        pantalla_voz()
-
-        st.session_state["pagina_actual"] = "🏠 Inicio"
-
-        st.stop()
 
     st.session_state["pagina_actual"] = opcion
 
@@ -116,10 +119,10 @@ else:
     ):
 
         st.session_state.clear()
+
         st.rerun()
 
     paginas = {
-
         "🏠 Inicio":
             pantalla_home,
 

@@ -1,5 +1,4 @@
 import tempfile
-import streamlit as st
 
 from services.speech_service import speech_to_text
 from services.action_engine import ejecutar_accion
@@ -9,61 +8,39 @@ from views.asistente import interpretar_movimiento
 
 def pantalla_voz():
 
+    import streamlit as st
+
     audio_bytes = st.session_state.get(
         "audio_global"
     )
 
     if not audio_bytes:
+        return None
 
-        st.warning(
-            "No hay audio disponible."
-        )
+    with tempfile.NamedTemporaryFile(
+        delete=False,
+        suffix=".wav"
+    ) as tmp:
 
-        return
+        tmp.write(audio_bytes)
 
-    try:
+        archivo_audio = tmp.name
 
-        with tempfile.NamedTemporaryFile(
-            delete=False,
-            suffix=".wav"
-        ) as tmp:
+    texto = speech_to_text(
+        archivo_audio
+    )
 
-            tmp.write(audio_bytes)
+    if not texto:
+        return "No pude entender el audio."
 
-            archivo_audio = tmp.name
+    resultado = interpretar_movimiento(
+        texto
+    )
 
-        texto = speech_to_text(
-            archivo_audio
-        )
+    resultado["texto_original"] = texto
 
-        if not texto:
+    mensaje = ejecutar_accion(
+        resultado
+    )
 
-            st.warning(
-                "No pude reconocer el audio."
-            )
-
-            st.session_state["audio_global"] = None
-
-            return
-
-        resultado = interpretar_movimiento(
-            texto
-        )
-
-        resultado["texto_original"] = texto
-
-        mensaje = ejecutar_accion(
-            resultado
-        )
-
-        st.success(mensaje)
-
-        st.session_state["audio_global"] = None
-
-    except Exception as e:
-
-        st.error(
-            f"ERROR: {str(e)}"
-        )
-
-        st.session_state["audio_global"] = None
+    return mensaje
