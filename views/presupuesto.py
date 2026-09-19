@@ -36,6 +36,19 @@ def pantalla_presupuesto():
             presupuesto_actual.iloc[0]["tipo_periodo"]
         )
 
+        st.info(
+            f"""
+✅ Presupuesto actual encontrado
+
+Periodo actual: {tipo_default}
+
+Monto actual: ${monto_default:,.2f}
+
+Modifica los valores y presiona
+"Actualizar Presupuesto".
+"""
+        )
+
     opciones = [
         "SEMANAL",
         "QUINCENAL",
@@ -59,7 +72,13 @@ def pantalla_presupuesto():
         value=monto_default
     )
 
-    if st.button("Guardar Presupuesto"):
+    texto_boton = (
+        "Crear Presupuesto"
+        if presupuesto_actual.empty
+        else "Actualizar Presupuesto"
+    )
+
+    if st.button(texto_boton):
 
         dias = {
             "SEMANAL": 7,
@@ -103,6 +122,10 @@ def pantalla_presupuesto():
                 }
             )
 
+            st.success(
+                "✅ Presupuesto creado"
+            )
+
         else:
 
             ejecutar_query(
@@ -131,15 +154,21 @@ def pantalla_presupuesto():
                 }
             )
 
-        st.success(
-            "✅ Presupuesto actualizado"
-        )
+            st.success(
+                "✅ Presupuesto actualizado"
+            )
 
         st.rerun()
 
     historial = obtener_dataframe(
         f"""
-        SELECT *
+        SELECT
+            id,
+            tipo_periodo,
+            monto,
+            fecha_inicio,
+            fecha_fin,
+            fecha_creacion
         FROM gastos.presupuestos
         WHERE usuario_id = {uid}
         ORDER BY id DESC
