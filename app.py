@@ -64,13 +64,11 @@ else:
 
     if audio_bytes:
 
-        st.session_state["audio_global"] = (
-            audio_bytes
-        )
+        st.session_state["audio_global"] = audio_bytes
 
-        pantalla_voz()
+        st.session_state["pagina_actual"] = "Voz"
 
-        st.stop()
+        st.rerun()
 
     st.sidebar.markdown("---")
 
@@ -100,6 +98,14 @@ else:
         index=indice
     )
 
+    if st.session_state["pagina_actual"] == "Voz":
+
+        pantalla_voz()
+
+        st.session_state["pagina_actual"] = "🏠 Inicio"
+
+        st.stop()
+
     st.session_state["pagina_actual"] = opcion
 
     st.sidebar.markdown("---")
@@ -110,7 +116,6 @@ else:
     ):
 
         st.session_state.clear()
-
         st.rerun()
 
     paginas = {
