@@ -14,23 +14,18 @@ from views.recordatorios import pantalla_recordatorios
 from views.asistente import pantalla_asistente
 from views.voz import pantalla_voz
 
-
 st.set_page_config(
     page_title="Queda",
     page_icon="💰",
     layout="wide"
 )
 
-# Página inicial después del login
 if "pagina_actual" not in st.session_state:
     st.session_state["pagina_actual"] = "🏠 Inicio"
 
-# Audio global
 if "audio_global" not in st.session_state:
     st.session_state["audio_global"] = None
 
-
-# USUARIO NO AUTENTICADO
 if "user_id" not in st.session_state:
 
     opcion = st.sidebar.radio(
@@ -46,8 +41,6 @@ if "user_id" not in st.session_state:
     else:
         pantalla_registro()
 
-
-# USUARIO AUTENTICADO
 else:
 
     st.sidebar.success(
@@ -71,7 +64,9 @@ else:
 
     if audio_bytes:
 
-        st.session_state["audio_global"] = audio_bytes
+        st.session_state["audio_global"] = (
+            audio_bytes
+        )
 
         pantalla_voz()
 
