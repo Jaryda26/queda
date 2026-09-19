@@ -10,17 +10,7 @@ def pantalla_recordatorios():
 
     st.title("🔔 Recordatorios")
 
-    st.markdown(
-        """
-Configura pagos recurrentes como:
-
-- Tarjeta BBVA
-- Netflix
-- Seguro Auto
-- Internet
-- Colegiaturas
-"""
-    )
+    st.subheader("Nuevo Recordatorio")
 
     descripcion = st.text_input(
         "Descripción"
@@ -58,19 +48,19 @@ Configura pagos recurrentes como:
             )
             VALUES
             (
-                :usuario_id,
+                :uid,
                 :descripcion,
                 :monto,
-                :dia_vencimiento,
-                :dias_anticipacion
+                :dia,
+                :anticipacion
             )
             """,
             {
-                "usuario_id": uid,
+                "uid": uid,
                 "descripcion": descripcion,
                 "monto": monto,
-                "dia_vencimiento": dia_vencimiento,
-                "dias_anticipacion": dias_anticipacion
+                "dia": dia_vencimiento,
+                "anticipacion": dias_anticipacion
             }
         )
 
@@ -82,7 +72,9 @@ Configura pagos recurrentes como:
 
     st.markdown("---")
 
-    st.subheader("Recordatorios activos")
+    st.subheader(
+        "Recordatorios configurados"
+    )
 
     df = obtener_dataframe(
         f"""
@@ -109,69 +101,148 @@ Configura pagos recurrentes como:
 
     for _, row in df.iterrows():
 
-        col1, col2 = st.columns([4, 1])
+        estado = (
+            "✅ PAGADO"
+            if row["pagado"]
+            else "🔔 PENDIENTE"
+        )
 
-        with col1:
+        with st.expander(
+            f"{row['descripcion']} - {estado}"
+        ):
 
-            estado = (
-                "✅ Pagado"
-                if row["pagado"]
-                else "🔔 Pendiente"
+            nuevo_descripcion = st.text_input(
+                "Descripción",
+                value=row["descripcion"],
+                key=f"desc_{row['id']}"
             )
 
-            st.markdown(
-                f"""
-**{row['descripcion']}**
-
-Monto: ${float(row['monto']):,.2f}
-
-Vence día: {row['dia_vencimiento']}
-
-Avisar: {row['dias_anticipacion']} días antes
-
-Estado: {estado}
-"""
+            nuevo_monto = st.number_input(
+                "Monto",
+                min_value=0.0,
+                value=float(row["monto"]),
+                key=f"monto_{row['id']}"
             )
 
-        with col2:
+            nuevo_dia = st.selectbox(
+                "Día vencimiento",
+                list(range(1, 32)),
+                index=int(row["dia_vencimiento"]) - 1,
+                key=f"dia_{row['id']}"
+            )
 
-            if not row["pagado"]:
+            nueva_anticipacion = st.selectbox(
+                "Avisar con",
+                [7, 3, 1],
+                index=[7, 3, 1].index(
+                    int(row["dias_anticipacion"])
+                )
+                if int(row["dias_anticipacion"]) in [7, 3, 1]
+                else 0,
+                key=f"anti_{row['id']}"
+            )
+
+            c1, c2, c3 = st.columns(3)
+
+            with c1:
 
                 if st.button(
-                    "✅ Pagar",
-                    key=f"pay_{row['id']}"
+                    "💾 Guardar",
+                    key=f"save_{row['id']}"
                 ):
 
                     ejecutar_query(
                         """
                         UPDATE gastos.recordatorios
                         SET
-                            pagado = TRUE,
-                            fecha_ultimo_pago = CURRENT_DATE
-                        WHERE id = :id
+                            descripcion=:descripcion,
+                            monto=:monto,
+                            dia_vencimiento=:dia,
+                            dias_anticipacion=:anticipacion
+                        WHERE id=:id
                         """,
                         {
-                            "id": int(row["id"])
+                            "descripcion":
+                                nuevo_descripcion,
+                            "monto":
+                                nuevo_monto,
+                            "dia":
+                                nuevo_dia,
+                            "anticipacion":
+                                nueva_anticipacion,
+                            "id":
+                                int(row["id"])
                         }
+                    )
+
+                    st.success(
+                        "✅ Actualizado"
                     )
 
                     st.rerun()
 
-            else:
+            with c2:
+
+                if not row["pagado"]:
+
+                    if st.button(
+                        "✅ Pagar",
+                        key=f"pay_{row['id']}"
+                    ):
+
+                        ejecutar_query(
+                            """
+                            UPDATE gastos.recordatorios
+                            SET
+                                pagado=TRUE,
+                                fecha_ultimo_pago=CURRENT_DATE
+                            WHERE id=:id
+                            """,
+                            {
+                                "id":
+                                    int(row["id"])
+                            }
+                        )
+
+                        st.rerun()
+
+                else:
+
+                    if st.button(
+                        "↩ Reabrir",
+                        key=f"open_{row['id']}"
+                    ):
+
+                        ejecutar_query(
+                            """
+                            UPDATE gastos.recordatorios
+                            SET pagado=FALSE
+                            WHERE id=:id
+                            """,
+                            {
+                                "id":
+                                    int(row["id"])
+                            }
+                        )
+
+                        st.rerun()
+
+            with c3:
 
                 if st.button(
-                    "↩ Reabrir",
-                    key=f"open_{row['id']}"
+                    "🗑 Eliminar",
+                    key=f"delete_{row['id']}"
                 ):
 
                     ejecutar_query(
                         """
-                        UPDATE gastos.recordatorios
-                        SET pagado = FALSE
-                        WHERE id = :id
+                        DELETE
+                        FROM gastos.recordatorios
+                        WHERE id=:id
                         """,
                         {
-                            "id": int(row["id"])
+                            "id":
+                                int(row["id"])
                         }
                     )
 
