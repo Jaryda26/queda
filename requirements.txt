@@ -7,3 +7,4 @@ bcrypt
 openai
 plotly
 audio-recorder-streamlit
+azure-cognitiveservices-speech

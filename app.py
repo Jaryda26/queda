@@ -8,12 +8,16 @@ from views.historial import pantalla_historial
 from views.presupuesto import pantalla_presupuesto
 from views.asistente import pantalla_asistente
 from views.voz import pantalla_voz
+from views.home import pantalla_home
 
 st.set_page_config(
     page_title="Queda",
     page_icon="💰",
     layout="wide"
 )
+
+if "home_vista" not in st.session_state:
+    st.session_state["home_vista"] = True
 
 if "user_id" not in st.session_state:
 
@@ -32,35 +36,56 @@ if "user_id" not in st.session_state:
 
 else:
 
-    st.sidebar.success(
-        st.session_state.get("nombre", "")
-    )
+    if st.session_state["home_vista"]:
 
-    op = st.sidebar.radio(
-        "Menú",
-        [
-            "Dashboard",
-            "Movimientos",
-            "Historial",
-            "Presupuesto",
-            "Asistente IA",
-            "Captura Voz"
-        ]
-    )
+        pantalla_home()
 
-    if st.sidebar.button(
-        "Cerrar Sesión"
-    ):
-        st.session_state.clear()
-        st.rerun()
+    else:
 
-    paginas = {
-        "Dashboard": pantalla_dashboard,
-        "Movimientos": pantalla_movimientos,
-        "Historial": pantalla_historial,
-        "Presupuesto": pantalla_presupuesto,
-        "Asistente IA": pantalla_asistente,
-        "Captura Voz": pantalla_voz
-    }
+        st.sidebar.success(
+            st.session_state.get(
+                "nombre",
+                ""
+            )
+        )
 
-    paginas[op]()
+        op = st.sidebar.radio(
+            "Menú",
+            [
+                "Dashboard",
+                "Movimientos",
+                "Historial",
+                "Presupuesto",
+                "Asistente IA",
+                "Captura Voz"
+            ]
+        )
+
+        if st.sidebar.button(
+            "Cerrar Sesión"
+        ):
+
+            st.session_state.clear()
+            st.rerun()
+
+        paginas = {
+            "Dashboard":
+                pantalla_dashboard,
+
+            "Movimientos":
+                pantalla_movimientos,
+
+            "Historial":
+                pantalla_historial,
+
+            "Presupuesto":
+                pantalla_presupuesto,
+
+            "Asistente IA":
+                pantalla_asistente,
+
+            "Captura Voz":
+                pantalla_voz
+        }
+
+        paginas[op]()
