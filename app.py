@@ -21,9 +21,9 @@ st.set_page_config(
     layout="wide"
 )
 
-# =====================================================
-# ESTADO INICIAL
-# =====================================================
+# ==========================================
+# ESTADO GLOBAL
+# ==========================================
 
 if "pagina_actual" not in st.session_state:
     st.session_state["pagina_actual"] = "🏠 Inicio"
@@ -31,9 +31,9 @@ if "pagina_actual" not in st.session_state:
 if "audio_global" not in st.session_state:
     st.session_state["audio_global"] = None
 
-# =====================================================
+# ==========================================
 # LOGIN
-# =====================================================
+# ==========================================
 
 if "user_id" not in st.session_state:
 
@@ -50,9 +50,9 @@ if "user_id" not in st.session_state:
     else:
         pantalla_registro()
 
-# =====================================================
+# ==========================================
 # USUARIO AUTENTICADO
-# =====================================================
+# ==========================================
 
 else:
 
@@ -129,12 +129,9 @@ else:
         key="menu_principal"
     )
 
-    # Solo actualiza cuando el usuario cambia manualmente
-    if opcion != st.session_state["pagina_actual"\]:
+    if opcion != st.session_state["pagina_actual"]:
 
-        st.session_state["pagina_actual"] = (
-            opcion
-        )
+        st.session_state["pagina_actual"] = opcion
 
     st.sidebar.markdown("---")
 
@@ -165,7 +162,7 @@ else:
             pantalla_presupuesto,
 
         "Recordatorios":
-           pantalla_recordatorios,
+            pantalla_recordatorios,
 
         "Asistente IA":
             pantalla_asistente,
@@ -174,8 +171,8 @@ else:
             pantalla_aprendizaje
     }
 
-    pagina = st.session_state[
+    pagina_actual = st.session_state[
         "pagina_actual"
     ]
 
-    paginas[pagina]()
+    paginas[pagina_actual]()
