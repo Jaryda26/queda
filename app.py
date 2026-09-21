@@ -166,5 +166,16 @@ else:
     pagina_actual = st.session_state[
         "pagina_actual"
     ]
+    st.write(
+        "DEBUG PAGINA:",
+        st.session_state["pagina_actual"]
+    )
 
+    st.write(
+        "DEBUG ACCION:",
+        st.session_state.get(
+            "debug_accion",
+            ""
+        )
+    )
     paginas[pagina_actual]()

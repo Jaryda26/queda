@@ -33,6 +33,10 @@ def ejecutar_accion(resultado):
             "Dashboard"
         )
 
+        st.session_state["debug_accion"] = (
+            "dashboard"
+        )
+
         st.rerun()
 
     # =====================================
