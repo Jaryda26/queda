@@ -193,6 +193,14 @@ def pantalla_home():
         f"🔔 Buenos días {st.session_state['nombre']}"
     )
 
+    if st.session_state.get(
+        "ultimo_texto_voz"
+    ):
+
+        st.caption(
+            f"🎤 Último comando: "
+            f"{st.session_state['ultimo_texto_voz']}"
+        )
     st.info(
         frase_del_dia()
     )

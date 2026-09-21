@@ -38,10 +38,10 @@ def pantalla_voz():
 
             return "⚠ No pude entender el audio."
 
-        # ----------------------------------
-        # PRIMERA CAPA:
-        # Intent Engine
-        # ----------------------------------
+        # Guardamos el último comando para depuración
+        st.session_state[
+            "ultimo_texto_voz"
+        ] = texto
 
         intencion = detectar_intencion(
             texto
@@ -51,6 +51,49 @@ def pantalla_voz():
 
             intencion["texto_original"] = texto
 
+            accion = intencion.get(
+                "accion",
+                ""
+            )
+
+            # NAVEGACIÓN
+            if accion == "ABRIR_DASHBOARD":
+
+                st.session_state[
+                    "pagina_actual"
+                ] = "Dashboard"
+
+                st.session_state[
+                    "audio_global"
+                ] = None
+
+                st.rerun()
+
+            if accion == "ABRIR_RECORDATORIOS":
+
+                st.session_state[
+                    "pagina_actual"
+                ] = "Recordatorios"
+
+                st.session_state[
+                    "audio_global"
+                ] = None
+
+                st.rerun()
+
+            if accion == "ABRIR_INICIO":
+
+                st.session_state[
+                    "pagina_actual"
+                ] = "🏠 Inicio"
+
+                st.session_state[
+                    "audio_global"
+                ] = None
+
+                st.rerun()
+
+            # RESTO DE ACCIONES
             mensaje = ejecutar_accion(
                 intencion
             )
@@ -61,10 +104,7 @@ def pantalla_voz():
 
             return mensaje
 
-        # ----------------------------------
-        # SEGUNDA CAPA:
-        # Azure OpenAI
-        # ----------------------------------
+        # IA
 
         resultado = interpretar_movimiento(
             texto

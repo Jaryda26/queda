@@ -83,21 +83,13 @@ else:
 
         try:
 
-            mensaje = pantalla_voz()
-
-            if mensaje:
-
-                st.sidebar.success(
-                    mensaje
-                )
+            pantalla_voz()
 
         except Exception as e:
 
             st.sidebar.error(
                 str(e)
             )
-
-        st.session_state["audio_global"] = None
 
     st.sidebar.markdown("---")
 
