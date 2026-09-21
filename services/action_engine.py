@@ -258,7 +258,10 @@ def ejecutar_accion(resultado):
     if accion == "REGISTRAR_GASTO":
 
         monto = float(
-            resultado.get("monto", 0)
+            resultado.get(
+                "monto",
+                0
+            )
         )
 
         ejecutar_query(
@@ -283,20 +286,29 @@ def ejecutar_accion(resultado):
             )
             """,
             {
-                "uid": st.session_state["user_id"],
-                "categoria": resultado.get(
-                    "categoria",
-                    "Otros"
-                ),
-                "concepto": resultado.get(
-                    "concepto",
-                    "Gasto"
-                ),
-                "monto": monto,
-                "texto": resultado.get(
-                    "texto_original",
-                    ""
-                )
+                "uid":
+                    st.session_state["user_id"],
+
+                "categoria":
+                    resultado.get(
+                        "categoria",
+                        "Otros"
+                    ),
+
+                "concepto":
+                    resultado.get(
+                        "concepto",
+                        "Gasto"
+                    ),
+
+                "monto":
+                    monto,
+
+                "texto":
+                    resultado.get(
+                        "texto_original",
+                        ""
+                    )
             }
         )
 
@@ -312,7 +324,10 @@ def ejecutar_accion(resultado):
     if accion == "REGISTRAR_INGRESO":
 
         monto = float(
-            resultado.get("monto", 0)
+            resultado.get(
+                "monto",
+                0
+            )
         )
 
         ejecutar_query(
@@ -339,20 +354,29 @@ def ejecutar_accion(resultado):
             )
             """,
             {
-                "uid": st.session_state["user_id"],
-                "concepto": resultado.get(
-                    "concepto",
-                    "Ingreso"
-                ),
-                "monto": monto,
-                "texto": resultado.get(
-                    "texto_original",
-                    ""
-                ),
-                "origen": resultado.get(
-                    "origen_ingreso",
-                    "Otro"
-                )
+                "uid":
+                    st.session_state["user_id"],
+
+                "concepto":
+                    resultado.get(
+                        "concepto",
+                        "Ingreso"
+                    ),
+
+                "monto":
+                    monto,
+
+                "texto":
+                    resultado.get(
+                        "texto_original",
+                        ""
+                    ),
+
+                "origen":
+                    resultado.get(
+                        "origen_ingreso",
+                        "Otro"
+                    )
             }
         )
 
