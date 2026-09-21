@@ -1,4 +1,5 @@
 import streamlit as st
+from datetime import date
 
 from db import ejecutar_query
 from db import obtener_dataframe
@@ -22,9 +23,9 @@ def pantalla_recordatorios():
         step=100.0
     )
 
-    dia_vencimiento = st.selectbox(
-        "Día de vencimiento",
-        list(range(1, 32))
+    fecha_vencimiento = st.date_input(
+        "Fecha de vencimiento",
+        value=date.today()
     )
 
     dias_anticipacion = st.selectbox(
@@ -54,7 +55,7 @@ def pantalla_recordatorios():
                 usuario_id,
                 descripcion,
                 monto,
-                dia_vencimiento,
+                fecha_vencimiento,
                 dias_anticipacion,
                 frecuencia
             )
@@ -63,8 +64,8 @@ def pantalla_recordatorios():
                 :uid,
                 :descripcion,
                 :monto,
-                :dia,
-                :anticipacion,
+                :fecha_vencimiento,
+                :dias,
                 :frecuencia
             )
             """,
@@ -72,8 +73,8 @@ def pantalla_recordatorios():
                 "uid": uid,
                 "descripcion": descripcion,
                 "monto": monto,
-                "dia": dia_vencimiento,
-                "anticipacion": dias_anticipacion,
+                "fecha_vencimiento": fecha_vencimiento,
+                "dias": dias_anticipacion,
                 "frecuencia": frecuencia
             }
         )
@@ -96,13 +97,14 @@ def pantalla_recordatorios():
             id,
             descripcion,
             monto,
-            dia_vencimiento,
+            fecha_vencimiento,
             dias_anticipacion,
             frecuencia,
-            pagado
+            pagado,
+            fecha_ultimo_pago
         FROM gastos.recordatorios
         WHERE usuario_id = {uid}
-        ORDER BY id DESC
+        ORDER BY fecha_vencimiento
         """
     )
 
@@ -139,11 +141,10 @@ def pantalla_recordatorios():
                 key=f"monto_{row['id']}"
             )
 
-            nuevo_dia = st.selectbox(
-                "Día vencimiento",
-                list(range(1, 32)),
-                index=int(row["dia_vencimiento"]) - 1,
-                key=f"dia_{row['id']}"
+            nueva_fecha = st.date_input(
+                "Fecha vencimiento",
+                value=row["fecha_vencimiento"],
+                key=f"fecha_{row['id']}"
             )
 
             nueva_anticipacion = st.selectbox(
@@ -155,32 +156,24 @@ def pantalla_recordatorios():
                 key=f"anti_{row['id']}"
             )
 
+            frecuencias = [
+                "UNICO",
+                "SEMANAL",
+                "QUINCENAL",
+                "MENSUAL",
+                "ANUAL"
+            ]
+
             nueva_frecuencia = st.selectbox(
                 "Frecuencia",
-                [
-                    "UNICO",
-                    "SEMANAL",
-                    "QUINCENAL",
-                    "MENSUAL",
-                    "ANUAL"
-                ],
-                index=[
-                    "UNICO",
-                    "SEMANAL",
-                    "QUINCENAL",
-                    "MENSUAL",
-                    "ANUAL"
-                ].index(
-                    str(row["frecuencia"])
-                )
-                if str(row["frecuencia"]) in [
-                    "UNICO",
-                    "SEMANAL",
-                    "QUINCENAL",
-                    "MENSUAL",
-                    "ANUAL"
-                ]
-                else 3,
+                frecuencias,
+                index=(
+                    frecuencias.index(
+                        str(row["frecuencia"])
+                    )
+                    if str(row["frecuencia"]) in frecuencias
+                    else 3
+                ),
                 key=f"freq_{row['id']}"
             )
 
@@ -197,26 +190,20 @@ def pantalla_recordatorios():
                         """
                         UPDATE gastos.recordatorios
                         SET
-                            descripcion=:descripcion,
-                            monto=:monto,
-                            dia_vencimiento=:dia,
-                            dias_anticipacion=:anticipacion,
-                            frecuencia=:frecuencia
-                        WHERE id=:id
+                            descripcion = :descripcion,
+                            monto = :monto,
+                            fecha_vencimiento = :fecha,
+                            dias_anticipacion = :anticipacion,
+                            frecuencia = :frecuencia
+                        WHERE id = :id
                         """,
                         {
-                            "descripcion":
-                                nueva_descripcion,
-                            "monto":
-                                nuevo_monto,
-                            "dia":
-                                nuevo_dia,
-                            "anticipacion":
-                                nueva_anticipacion,
-                            "frecuencia":
-                                nueva_frecuencia,
-                            "id":
-                                int(row["id"])
+                            "descripcion": nueva_descripcion,
+                            "monto": nuevo_monto,
+                            "fecha": nueva_fecha,
+                            "anticipacion": nueva_anticipacion,
+                            "frecuencia": nueva_frecuencia,
+                            "id": int(row["id"])
                         }
                     )
 
@@ -236,7 +223,7 @@ def pantalla_recordatorios():
                     ):
 
                         if (
-                            str(row["frecuencia"])
+                            str(row["frecuencia"]).upper()
                             == "UNICO"
                         ):
 
@@ -245,13 +232,11 @@ def pantalla_recordatorios():
                                 UPDATE gastos.recordatorios
                                 SET
                                     pagado = TRUE,
-                                    fecha_ultimo_pago =
-                                    CURRENT_DATE
+                                    fecha_ultimo_pago = CURRENT_DATE
                                 WHERE id = :id
                                 """,
                                 {
-                                    "id":
-                                        int(row["id"])
+                                    "id": int(row["id"])
                                 }
                             )
 
@@ -261,27 +246,31 @@ def pantalla_recordatorios():
                                 """
                                 UPDATE gastos.recordatorios
                                 SET
-                                    fecha_ultimo_pago =
-                                    CURRENT_DATE,
-                                    pagado = FALSE
+                                    fecha_ultimo_pago = CURRENT_DATE
                                 WHERE id = :id
                                 """,
                                 {
-                                    "id":
-                                        int(row["id"])
+                                    "id": int(row["id"])
                                 }
                             )
+
+                        st.success(
+                            "✅ Pago registrado"
+                        )
 
                         st.rerun()
 
                 else:
 
-                    if str(row["frecuencia"]) == "UNICO":
+                    if (
+                        str(row["frecuencia"]).upper()
+                        == "UNICO"
+                    ):
 
                         if st.button(
                             "↩ Reabrir",
                             key=f"open_{row['id']}"
-                            ):
+                        ):
 
                             ejecutar_query(
                                 """
@@ -290,8 +279,7 @@ def pantalla_recordatorios():
                                 WHERE id = :id
                                 """,
                                 {
-                                "id":
-                                    int(row["id"])
+                                    "id": int(row["id"])
                                 }
                             )
 
@@ -301,14 +289,13 @@ def pantalla_recordatorios():
 
                         st.success(
                             f"""
-                ✅ Pago recurrente
+✅ Pago recurrente
 
-                Frecuencia:
-                {row['frecuencia']}
+Frecuencia:
+{row['frecuencia']}
 
-                Seguirá activo para
-                el siguiente periodo.
-                """
+Seguirá activo para el siguiente periodo.
+"""
                         )
 
             with c3:
@@ -320,13 +307,12 @@ def pantalla_recordatorios():
 
                     ejecutar_query(
                         """
-                        DELETE FROM
-                        gastos.recordatorios
+                        DELETE
+                        FROM gastos.recordatorios
                         WHERE id = :id
                         """,
                         {
-                            "id":
-                                int(row["id"])
+                            "id": int(row["id"])
                         }
                     )
 

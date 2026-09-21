@@ -1,6 +1,5 @@
 import streamlit as st
 from datetime import date
-import random
 
 from db import obtener_dataframe
 from db import ejecutar_query
@@ -144,10 +143,8 @@ def frase_del_dia():
         "🧠 El hábito financiero vale más que cualquier herramienta."
     ]
 
-    hoy = date.today().day
-
     return frases[
-        hoy % len(frases)
+        date.today().day % len(frases)
     ]
 
 
@@ -194,14 +191,14 @@ ${disponible:,.2f}
             id,
             descripcion,
             monto,
-            dia_vencimiento,
+            fecha_vencimiento,
             dias_anticipacion,
             frecuencia,
             pagado
         FROM gastos.recordatorios
         WHERE usuario_id = {uid}
         AND pagado = FALSE
-        ORDER BY dia_vencimiento
+        ORDER BY fecha_vencimiento
         """
     )
 
@@ -209,14 +206,19 @@ ${disponible:,.2f}
 
     for _, row in df.iterrows():
 
+        if row["fecha_vencimiento"] is None:
+            continue
+
+        fecha_vencimiento = row[
+            "fecha_vencimiento"
+        ]
+
         dias_restantes = (
-            int(row["dia_vencimiento"])
-            - hoy.day
-        )
+            fecha_vencimiento - hoy
+        ).days
 
-        if dias_restantes < 0:
-
-            dias_restantes += 30
+        # IMPORTANTE:
+        # si ya venció sigue apareciendo
 
         if dias_restantes > int(
             row["dias_anticipacion"]
@@ -225,15 +227,40 @@ ${disponible:,.2f}
 
         encontrados += 1
 
-        icono = "🔔"
-
-        if dias_restantes <= 1:
+        if dias_restantes < 0:
 
             icono = "🔴"
+
+            mensaje = (
+                f"Venció hace "
+                f"{abs(dias_restantes)} día(s)"
+            )
+
+        elif dias_restantes <= 1:
+
+            icono = "🔴"
+
+            mensaje = (
+                "Vence hoy o mañana"
+            )
 
         elif dias_restantes <= 3:
 
             icono = "🟡"
+
+            mensaje = (
+                f"Vence en "
+                f"{dias_restantes} día(s)"
+            )
+
+        else:
+
+            icono = "🔔"
+
+            mensaje = (
+                f"Vence en "
+                f"{dias_restantes} día(s)"
+            )
 
         st.markdown(
             f"""
@@ -242,8 +269,7 @@ ${disponible:,.2f}
 💰 Monto:
 ${float(row['monto']):,.2f}
 
-📅 Vence en:
-{dias_restantes} día(s)
+📅 {mensaje}
 
 🔁 Frecuencia:
 {row['frecuencia']}
@@ -265,25 +291,20 @@ ${float(row['monto']):,.2f}
                     float(row["monto"])
                 )
 
-                if (
-                    str(
-                        row["frecuencia"]
-                    ).upper()
-                    == "UNICO"
-                ):
+                if str(
+                    row["frecuencia"]
+                ).upper() == "UNICO":
 
                     ejecutar_query(
                         """
                         UPDATE gastos.recordatorios
                         SET
                             pagado = TRUE,
-                            fecha_ultimo_pago =
-                            CURRENT_DATE
+                            fecha_ultimo_pago = CURRENT_DATE
                         WHERE id = :id
                         """,
                         {
-                            "id":
-                                int(row["id"])
+                            "id": int(row["id"])
                         }
                     )
 
@@ -293,13 +314,11 @@ ${float(row['monto']):,.2f}
                         """
                         UPDATE gastos.recordatorios
                         SET
-                            fecha_ultimo_pago =
-                            CURRENT_DATE
+                            fecha_ultimo_pago = CURRENT_DATE
                         WHERE id = :id
                         """,
                         {
-                            "id":
-                                int(row["id"])
+                            "id": int(row["id"])
                         }
                     )
 
@@ -316,9 +335,24 @@ ${float(row['monto']):,.2f}
                 key=f"despues_{row['id']}"
             ):
 
-                st.info(
-                    "Te lo recordaré más tarde."
+                ejecutar_query(
+                    """
+                    UPDATE gastos.recordatorios
+                    SET
+                        fecha_proxima_alerta =
+                        CURRENT_DATE + INTERVAL '1 day'
+                    WHERE id = :id
+                    """,
+                    {
+                        "id": int(row["id"])
+                    }
                 )
+
+                st.success(
+                    "⏰ Te lo recordaré mañana"
+                )
+
+                st.rerun()
 
         st.divider()
 
