@@ -15,17 +15,26 @@ from views.asistente import pantalla_asistente
 from views.voz import pantalla_voz
 from views.aprendizaje import pantalla_aprendizaje
 
+
 st.set_page_config(
     page_title="Queda",
     page_icon="💰",
     layout="wide"
 )
 
+# =====================================================
+# ESTADO INICIAL
+# =====================================================
+
 if "pagina_actual" not in st.session_state:
     st.session_state["pagina_actual"] = "🏠 Inicio"
 
 if "audio_global" not in st.session_state:
     st.session_state["audio_global"] = None
+
+# =====================================================
+# LOGIN
+# =====================================================
 
 if "user_id" not in st.session_state:
 
@@ -41,6 +50,10 @@ if "user_id" not in st.session_state:
         pantalla_login()
     else:
         pantalla_registro()
+
+# =====================================================
+# USUARIO AUTENTICADO
+# =====================================================
 
 else:
 
@@ -63,16 +76,18 @@ else:
         icon_size="2x"
     )
 
-    # SOLO guarda el audio
     if audio_bytes:
 
-        st.session_state["audio_global"] = audio_bytes
+        st.session_state["audio_global"] = (
+            audio_bytes
+        )
 
         try:
 
             mensaje = pantalla_voz()
 
             if mensaje:
+
                 st.sidebar.success(
                     mensaje
                 )
@@ -98,17 +113,10 @@ else:
         "🧠 Aprendizaje"
     ]
 
-    try:
-        indice = menu.index(
-            st.session_state["pagina_actual"]
-        )
-    except Exception:
-        indice = 0
-
     opcion = st.sidebar.radio(
         "Menú",
         menu,
-        index=indice
+        key="menu_principal"
     )
 
     st.session_state["pagina_actual"] = opcion
@@ -125,6 +133,7 @@ else:
         st.rerun()
 
     paginas = {
+
         "🏠 Inicio":
             pantalla_home,
 
@@ -145,7 +154,7 @@ else:
 
         "Asistente IA":
             pantalla_asistente,
-            
+
         "🧠 Aprendizaje":
             pantalla_aprendizaje,
     }
