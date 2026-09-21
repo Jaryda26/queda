@@ -1,11 +1,13 @@
 import json
 import streamlit as st
-from services.action_engine import ejecutar_accion
 
 from openai import OpenAI
 
-from db import ejecutar_query
 from db import obtener_dataframe
+
+from services.intent_engine import detectar_intencion
+from services.action_engine import ejecutar_accion
+
 
 AZURE_OPENAI_ENDPOINT = st.secrets["AZURE_OPENAI_ENDPOINT"]
 AZURE_OPENAI_KEY = st.secrets["AZURE_OPENAI_KEY"]
@@ -16,57 +18,98 @@ client = OpenAI(
     api_key=AZURE_OPENAI_KEY
 )
 
-PROMPT = """
-Eres el motor principal de Queda.
 
-Devuelve únicamente JSON.
+PROMPT = """
+Eres el motor financiero de Queda.
+
+Devuelve únicamente JSON válido.
 
 Acciones válidas:
 
 REGISTRAR_GASTO
 REGISTRAR_INGRESO
 PAGAR_RECORDATORIO
+POSPONER_RECORDATORIO
 ABRIR_DASHBOARD
 ABRIR_RECORDATORIOS
+
+Cuando detectes ingresos intenta extraer:
+
+concepto
+origen_ingreso
+monto
+
+Cuando detectes gastos intenta extraer:
+
+categoria
+concepto
+monto
 
 Ejemplos:
 
 Compré una coca de 25 pesos
 
 {
- "accion":"REGISTRAR_GASTO",
- "categoria":"Comida",
- "concepto":"Coca",
- "monto":25
+  "accion":"REGISTRAR_GASTO",
+  "categoria":"Comida",
+  "concepto":"Coca",
+  "monto":25
+}
+
+Gasté 350 en gasolina
+
+{
+  "accion":"REGISTRAR_GASTO",
+  "categoria":"Gasolina",
+  "concepto":"Gasolina",
+  "monto":350
 }
 
 Me depositaron 12000 de nómina
 
 {
- "accion":"REGISTRAR_INGRESO",
- "concepto":"Nomina",
- "origen_ingreso":"Nomina",
- "monto":12000
+  "accion":"REGISTRAR_INGRESO",
+  "concepto":"Nomina",
+  "origen_ingreso":"Nomina",
+  "monto":12000
+}
+
+Pago de nómina 12000
+
+{
+  "accion":"REGISTRAR_INGRESO",
+  "concepto":"Nomina",
+  "origen_ingreso":"Nomina",
+  "monto":12000
 }
 
 Ya pagué Sears
 
 {
- "accion":"PAGAR_RECORDATORIO",
- "descripcion":"SEARS"
+  "accion":"PAGAR_RECORDATORIO",
+  "descripcion":"SEARS"
+}
+
+Después Sears
+
+{
+  "accion":"POSPONER_RECORDATORIO",
+  "descripcion":"SEARS"
 }
 
 Muéstrame estadísticas
 
 {
- "accion":"ABRIR_DASHBOARD"
+  "accion":"ABRIR_DASHBOARD"
 }
 
 Qué tengo pendiente
 
 {
- "accion":"ABRIR_RECORDATORIOS"
+  "accion":"ABRIR_RECORDATORIOS"
 }
+
+Devuelve únicamente JSON.
 """
 
 
@@ -90,6 +133,7 @@ def interpretar_movimiento(texto):
     contenido = response.choices[0].message.content
 
     if contenido.startswith("```json"):
+
         contenido = contenido.replace(
             "```json",
             ""
@@ -103,62 +147,6 @@ def interpretar_movimiento(texto):
         contenido = contenido.strip()
 
     return json.loads(contenido)
-
-
-def guardar_movimiento(
-    resultado,
-    texto_original
-):
-
-    ejecutar_query(
-        """
-        INSERT INTO gastos.movimientos
-        (
-            usuario_id,
-            tipo,
-            categoria,
-            concepto,
-            monto,
-            texto_original,
-            origen_ingreso
-        )
-        VALUES
-        (
-            :usuario_id,
-            :tipo,
-            :categoria,
-            :concepto,
-            :monto,
-            :texto_original,
-            :origen_ingreso
-        )
-        """,
-        {
-            "usuario_id":
-                st.session_state["user_id"],
-
-            "tipo":
-                resultado["tipo"],
-
-            "categoria":
-                resultado["categoria"],
-
-            "concepto":
-                resultado["concepto"],
-
-            "monto":
-                resultado["monto"],
-
-            "texto_original":
-                texto_original,
-
-            "origen_ingreso":
-                resultado.get(
-                    "origen_ingreso",
-                    None
-                )
-        }
-    )
 
 
 def obtener_saldo():
@@ -189,9 +177,7 @@ def obtener_saldo():
                     END
                 ),
                 0
-            )
-
-            AS saldo
+            ) saldo
 
         FROM gastos.movimientos
 
@@ -205,47 +191,6 @@ def obtener_saldo():
     )
 
 
-def obtener_porcentaje_presupuesto():
-
-    uid = st.session_state["user_id"]
-
-    presupuesto_df = obtener_dataframe(
-        f"""
-        SELECT monto
-        FROM gastos.presupuestos
-        WHERE usuario_id = {uid}
-        ORDER BY id DESC
-        LIMIT 1
-        """
-    )
-
-    if presupuesto_df.empty:
-        return 0
-
-    presupuesto = float(
-        presupuesto_df.iloc[0]["monto"]
-    )
-
-    gastos_df = obtener_dataframe(
-        f"""
-        SELECT
-            COALESCE(SUM(monto),0) total
-        FROM gastos.movimientos
-        WHERE tipo='GASTO'
-        AND usuario_id={uid}
-        """
-    )
-
-    gastos = float(
-        gastos_df.iloc[0]["total"]
-    )
-
-    if presupuesto <= 0:
-        return 0
-
-    return (gastos / presupuesto) * 100
-
-
 def pantalla_asistente():
 
     st.title("🤖 Asistente IA")
@@ -254,11 +199,14 @@ def pantalla_asistente():
         """
 ### Ejemplos
 
+- Compré una coca de 25 pesos
 - Gasté 350 en gasolina
-- Comí tacos por 180
-- Pagué 900 de internet
-- Recibí 12000 de nómina
-- Vendí una bicicleta por 3000
+- Ya cayó el águila
+- Ya chilló la marrana
+- Pago de nómina
+- Ya pagué Sears
+- Después Sears
+- Muéstrame estadísticas
 """
     )
 
@@ -266,21 +214,113 @@ def pantalla_asistente():
         "¿Qué pasó?"
     )
 
+    # ===================================================
+    # ESPERANDO MONTO PARA INGRESO
+    # ===================================================
+
+    if st.session_state.get(
+        "esperando_monto_ingreso",
+        False
+    ):
+
+        if st.button("Procesar"):
+
+            try:
+
+                monto = float(texto)
+
+                resultado = {
+                    "accion":
+                        "REGISTRAR_INGRESO",
+
+                    "concepto":
+                        "Ingreso",
+
+                    "origen_ingreso":
+                        "Ingreso",
+
+                    "monto":
+                        monto,
+
+                    "texto_original":
+                        texto
+                }
+
+                mensaje = ejecutar_accion(
+                    resultado
+                )
+
+                st.session_state[
+                    "esperando_monto_ingreso"
+                ] = False
+
+                st.success(
+                    mensaje
+                )
+
+            except Exception:
+
+                st.warning(
+                    "Indica solamente el monto."
+                )
+
+        return
+
+    # ===================================================
+    # FLUJO NORMAL
+    # ===================================================
+
     if st.button("Procesar"):
 
         if not texto.strip():
 
             st.warning(
-                "Escribe una descripción"
+                "Escribe una descripción."
             )
 
             return
 
         try:
 
-            resultado = interpretar_movimiento(
+            intencion = detectar_intencion(
                 texto
             )
+
+            if intencion:
+
+                if intencion["accion"] in [
+                    "ABRIR_DASHBOARD",
+                    "ABRIR_RECORDATORIOS",
+                    "PAGAR_RECORDATORIO",
+                    "POSPONER_RECORDATORIO",
+                    "PREGUNTAR_MONTO_INGRESO"
+                \]:
+
+                    mensaje = ejecutar_accion(
+                        intencion
+                   )
+
+                    st.success(
+                        mensaje
+                    )
+
+                    return
+
+                else:
+
+                    resultado = interpretar_movimiento(
+                        texto
+                    )
+
+                    resultado["accion"] = (
+                        intencion["accion"]
+                    )
+
+            else:
+
+                resultado = interpretar_movimiento(
+                    texto
+                )
 
             resultado["texto_original"] = texto
 
@@ -292,41 +332,20 @@ def pantalla_asistente():
                 mensaje
             )
 
-            saldo = obtener_saldo()
+            try:
 
-            porcentaje = (
-                obtener_porcentaje_presupuesto()
-            )
+                saldo = obtener_saldo()
 
-            if resultado["tipo"] == "GASTO":
+                st.info(
+                    f"""
+💰 Disponible actual:
 
-                mensaje = f"""
-✅ Registré un gasto de ${resultado['monto']:,.2f}
-
-📂 Categoría: {resultado['categoria']}
-
-📝 Concepto: {resultado['concepto']}
-
-💰 Disponible actual: ${saldo:,.2f}
-
-📊 Has utilizado {porcentaje:.1f}% de tu presupuesto.
+${saldo:,.2f}
 """
+                )
 
-            else:
-
-                mensaje = f"""
-✅ Registré un ingreso de ${resultado['monto']:,.2f}
-
-📝 Concepto: {resultado['concepto']}
-
-💰 Disponible actual: ${saldo:,.2f}
-
-📊 Has utilizado {porcentaje:.1f}% de tu presupuesto.
-"""
-
-            st.success(
-                mensaje
-            )
+            except Exception:
+                pass
 
         except Exception as e:
 

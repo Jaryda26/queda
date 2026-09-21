@@ -13,6 +13,7 @@ from views.presupuesto import pantalla_presupuesto
 from views.recordatorios import pantalla_recordatorios
 from views.asistente import pantalla_asistente
 from views.voz import pantalla_voz
+from views.aprendizaje import pantalla_aprendizaje
 
 st.set_page_config(
     page_title="Queda",
@@ -93,7 +94,8 @@ else:
         "Historial",
         "Presupuesto",
         "Recordatorios",
-        "Asistente IA"
+        "Asistente IA",
+        "🧠 Aprendizaje"
     ]
 
     try:
@@ -142,7 +144,10 @@ else:
             pantalla_recordatorios,
 
         "Asistente IA":
-            pantalla_asistente
+            pantalla_asistente,
+            
+        "🧠 Aprendizaje":
+            pantalla_aprendizaje,
     }
 
     paginas[opcion]()

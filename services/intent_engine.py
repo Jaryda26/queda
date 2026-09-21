@@ -16,10 +16,38 @@ def normalizar_texto(texto):
         if unicodedata.category(c) != "Mn"
     )
 
+    reemplazos = {
+
+        "nom ina": "nomina",
+
+        "bbva bancomer": "bbva",
+
+        "gasolina premium": "gasolina",
+        "gasolina magna": "gasolina",
+
+        "uber eats": "comida",
+        "didi food": "comida",
+
+        "pago de nomina": "nomina",
+        "pago nomina": "nomina",
+
+        "ya cago el aguila": "ya cayo el aguila",
+        "ya cago la quincena": "ya cayo la quincena"
+    }
+
+    for viejo, nuevo in reemplazos.items():
+
+        texto = texto.replace(
+            viejo,
+            nuevo
+        )
+
     return texto
 
 
 def detectar_categoria(texto):
+
+    texto = normalizar_texto(texto)
 
     categorias = {
 
@@ -28,17 +56,20 @@ def detectar_categoria(texto):
             "pemex",
             "shell",
             "mobil",
-            "combustible"
+            "combustible",
+            "diesel"
         ],
 
         "Comida": [
             "comida",
             "tacos",
-            "restaurante",
             "pizza",
+            "hamburguesa",
+            "restaurante",
             "coca",
             "refresco",
-            "cafe"
+            "cafe",
+            "cafeteria"
         ],
 
         "Servicios": [
@@ -46,27 +77,35 @@ def detectar_categoria(texto):
             "luz",
             "agua",
             "telefono",
-            "telmex"
+            "celular",
+            "telmex",
+            "izzi",
+            "totalplay"
         ],
 
         "Transporte": [
             "uber",
             "didi",
             "taxi",
-            "casetas"
+            "caseta",
+            "casetas",
+            "estacionamiento"
         ],
 
         "Salud": [
             "doctor",
             "medico",
             "hospital",
-            "farmacia"
+            "farmacia",
+            "medicina"
         ],
 
         "Entretenimiento": [
             "netflix",
             "spotify",
-            "cine"
+            "cine",
+            "disney",
+            "amazon prime"
         ]
     }
 
@@ -87,41 +126,22 @@ def detectar_intencion(texto):
 
     texto = normalizar_texto(texto)
 
-    ingresos = [
-        "ya cayo el aguila",
-        "ya me cayo",
-        "me pagaron",
-        "me depositaron",
-        "nomina",
-        "salario",
-        "comision",
-        "comisiones",
-        "aguinaldo",
-        "utilidades",
-        "bono",
-        "vendi",
-        "venta",
-        "prestamo",
-        "reembolso",
-        "pago de nomina",
-        "pago de salario"
-    ]
-
-    for palabra in ingresos:
-
-        if palabra in texto:
-
-            return {
-                "accion": "PREGUNTAR_MONTO_INGRESO",
-                "texto_original": texto_original
-            }
+    # ====================================
+    # PAGAR RECORDATORIOS
+    # ====================================
 
     pagos = [
+
         "ya pague",
-        "ya pague sears",
-        "ya pague bbva",
+        "ya pagué",
+
+        "quedo pagado",
+        "quedó pagado",
+
         "liquide",
-        "quedo pagado"
+        "liquidé",
+
+        "liquidado"
     ]
 
     for palabra in pagos:
@@ -131,23 +151,41 @@ def detectar_intencion(texto):
             descripcion = texto
 
             for p in pagos:
+
                 descripcion = descripcion.replace(
                     p,
                     ""
                 )
 
             return {
-                "accion": "PAGAR_RECORDATORIO",
-                "descripcion": descripcion.strip(),
-                "texto_original": texto_original
+                "accion":
+                    "PAGAR_RECORDATORIO",
+
+                "descripcion":
+                    descripcion.strip(),
+
+                "texto_original":
+                    texto_original
             }
 
+    # ====================================
+    # POSPONER RECORDATORIOS
+    # ====================================
+
     posponer = [
+
         "despues",
         "después",
+
+        "luego",
+
         "mas tarde",
         "más tarde",
-        "luego",
+
+        "recordarme manana",
+        "recordame manana",
+
+        "manana",
         "mañana"
     ]
 
@@ -161,24 +199,212 @@ def detectar_intencion(texto):
             )
 
             return {
-                "accion": "POSPONER_RECORDATORIO",
-                "descripcion": descripcion.strip(),
-                "texto_original": texto_original
+                "accion":
+                    "POSPONER_RECORDATORIO",
+
+                "descripcion":
+                    descripcion.strip(),
+
+                "texto_original":
+                    texto_original
             }
 
+    # ====================================
+    # DASHBOARD
+    # ====================================
+
+    dashboard = [
+
+        "dashboard",
+
+        "estadisticas",
+        "estadísticas",
+
+        "como voy",
+        "cómo voy",
+
+        "mi resumen",
+        "resumen",
+
+        "mis gastos",
+
+        "cuanto me queda",
+        "cuánto me queda"
+    ]
+
+    for palabra in dashboard:
+
+        if palabra in texto:
+
+            return {
+                "accion":
+                    "ABRIR_DASHBOARD"
+            }
+
+    # ====================================
+    # RECORDATORIOS
+    # ====================================
+
+    recordatorios = [
+
+        "que tengo pendiente",
+        "qué tengo pendiente",
+
+        "recordatorios",
+
+        "pendientes",
+
+        "vencimientos",
+
+        "que debo pagar",
+        "qué debo pagar"
+    ]
+
+    for palabra in recordatorios:
+
+        if palabra in texto:
+
+            return {
+                "accion":
+                    "ABRIR_RECORDATORIOS"
+            }
+
+    # ====================================
+    # INGRESOS SIN MONTO
+    # ====================================
+
+    ingresos_sin_monto = [
+
+        # águila
+
+        "ya cayo el aguila",
+        "ya cayó el águila",
+
+        "ya cago el aguila",
+        "ya cagó el águila",
+
+        # marrana
+
+        "ya chillo la marrana",
+        "ya chillo la marrana",
+        "ya chilló la marrana",
+
+        # feria
+
+        "me cayo una feria",
+        "me cayó una feria",
+
+        "me cayo lana",
+        "me cayó lana",
+
+        "ya me cayo",
+        "ya me cayó",
+
+        "cayo dinero",
+        "cayó dinero",
+
+        # pagos
+
+        "me pagaron",
+
+        "me depositaron",
+
+        "me transfirieron",
+
+        # nomina
+
+        "nomina",
+        "nómina",
+
+        "salario",
+
+        "pago de nomina",
+        "pago de nómina",
+
+        # extras
+
+        "aguinaldo",
+        "utilidades",
+
+        "bono",
+
+        "comision",
+        "comisión",
+        "comisiones",
+
+        "prestamo",
+        "préstamo",
+
+        "reembolso",
+
+        "devolucion",
+        "devolución",
+
+        "vendi",
+        "vendí",
+
+        "venta"
+    ]
+
+    for palabra in ingresos_sin_monto:
+
+        if palabra in texto:
+
+            return {
+                "accion":
+                    "PREGUNTAR_MONTO_INGRESO",
+
+                "texto_original":
+                    texto_original
+            }
+
+    # ====================================
+    # GASTOS
+    # ====================================
+
     gastos = [
+
         "compre",
         "compré",
+
         "gaste",
         "gasté",
-        "pague",
-        "pagué",
+
+        "consumi",
+        "consumí",
+
+        "inverti",
+        "invertí",
+
         "gasolina",
+
         "uber",
-        "coca",
+        "taxi",
+
         "tacos",
+        "comida",
+
+        "coca",
+        "refresco",
+
         "internet",
-        "comida"
+        "luz",
+        "agua",
+
+        "netflix",
+        "spotify",
+        "prime",
+
+        "sanborns",
+        "sears",
+
+        "farmacia",
+        "doctor",
+
+        "se me fue",
+
+        "me compre",
+        "me compré"
     ]
 
     for palabra in gastos:
@@ -186,9 +412,14 @@ def detectar_intencion(texto):
         if palabra in texto:
 
             return {
-                "accion": "REGISTRAR_GASTO",
-                "categoria": detectar_categoria(texto),
-                "texto_original": texto_original
+                "accion":
+                    "REGISTRAR_GASTO",
+
+                "categoria":
+                    detectar_categoria(texto),
+
+                "texto_original":
+                    texto_original
             }
 
     return None

@@ -1,329 +1,377 @@
-import json
 import streamlit as st
-
-from openai import OpenAI
 
 from db import ejecutar_query
 from db import obtener_dataframe
 
-from services.intent_engine import detectar_intencion
 
+def ejecutar_accion(resultado):
 
-AZURE_OPENAI_ENDPOINT = st.secrets["AZURE_OPENAI_ENDPOINT"]
-AZURE_OPENAI_KEY = st.secrets["AZURE_OPENAI_KEY"]
-AZURE_OPENAI_DEPLOYMENT = st.secrets["AZURE_OPENAI_DEPLOYMENT"]
+    accion = resultado.get(
+        "accion",
+        ""
+    ).upper()
 
-client = OpenAI(
-    base_url=AZURE_OPENAI_ENDPOINT,
-    api_key=AZURE_OPENAI_KEY
-)
+    # =====================================
+    # ABRIR DASHBOARD
+    # =====================================
 
-PROMPT = """
-Eres el motor financiero de Queda.
+    if accion == "ABRIR_DASHBOARD":
 
-Devuelve únicamente JSON válido.
+        st.session_state["pagina_actual"] = (
+            "Dashboard"
+        )
 
-Acciones válidas:
+        return "📊 Abriendo Dashboard"
 
-REGISTRAR_GASTO
-REGISTRAR_INGRESO
-PAGAR_RECORDATORIO
-POSPONER_RECORDATORIO
-ABRIR_DASHBOARD
-ABRIR_RECORDATORIOS
+    # =====================================
+    # ABRIR RECORDATORIOS
+    # =====================================
 
-Ejemplos:
+    if accion == "ABRIR_RECORDATORIOS":
 
-Compré una coca de 25 pesos
+        st.session_state["pagina_actual"] = (
+            "Recordatorios"
+        )
 
-{
-  "accion":"REGISTRAR_GASTO",
-  "categoria":"Comida",
-  "concepto":"Coca",
-  "monto":25
-}
+        return "🔔 Abriendo Recordatorios"
 
-Gasté 350 en gasolina
+    # =====================================
+    # PREGUNTAR MONTO INGRESO
+    # =====================================
 
-{
-  "accion":"REGISTRAR_GASTO",
-  "categoria":"Gasolina",
-  "concepto":"Gasolina",
-  "monto":350
-}
+    if accion == "PREGUNTAR_MONTO_INGRESO":
 
-Me depositaron 12000 de nómina
+        st.session_state[
+            "esperando_monto_ingreso"
+        ] = True
 
-{
-  "accion":"REGISTRAR_INGRESO",
-  "concepto":"Nomina",
-  "origen_ingreso":"Nomina",
-  "monto":12000
-}
+        return (
+            "💰 Detecté un ingreso.\n\n"
+            "¿Cuál fue el monto?"
+        )
 
-Pago de nómina 12000
+    # =====================================
+    # POSPONER RECORDATORIO
+    # =====================================
 
-{
-  "accion":"REGISTRAR_INGRESO",
-  "concepto":"Nomina",
-  "origen_ingreso":"Nomina",
-  "monto":12000
-}
+    if accion == "POSPONER_RECORDATORIO":
 
-Ya pagué Sears
+        descripcion = resultado.get(
+            "descripcion",
+            ""
+        )
 
-{
-  "accion":"PAGAR_RECORDATORIO",
-  "descripcion":"SEARS"
-}
+        recordatorios = obtener_dataframe(
+            f"""
+            SELECT *
+            FROM gastos.recordatorios
+            WHERE usuario_id =
+            {st.session_state["user_id"]}
+            AND pagado = FALSE
+            """
+        )
 
-Después Sears
+        if recordatorios.empty:
 
-{
-  "accion":"POSPONER_RECORDATORIO",
-  "descripcion":"SEARS"
-}
+            return (
+                "⚠ No existen recordatorios pendientes."
+            )
 
-Muéstrame estadísticas
+        coincidencia = recordatorios[
+            recordatorios["descripcion"]
+            .str.upper()
+            .str.contains(
+                descripcion.upper(),
+                na=False
+            )
+        ]
 
-{
-  "accion":"ABRIR_DASHBOARD"
-}
+        if coincidencia.empty:
 
-Qué tengo pendiente
+            return (
+                f"⚠ No encontré {descripcion}"
+            )
 
-{
-  "accion":"ABRIR_RECORDATORIOS"
-}
+        row = coincidencia.iloc[0]
 
-Devuelve únicamente JSON.
-"""
-
-
-def interpretar_movimiento(texto):
-
-    response = client.chat.completions.create(
-        model=AZURE_OPENAI_DEPLOYMENT,
-        messages=[
+        ejecutar_query(
+            """
+            UPDATE gastos.recordatorios
+            SET fecha_proxima_alerta =
+                CURRENT_DATE + INTERVAL '1 day'
+            WHERE id = :id
+            """,
             {
-                "role": "system",
-                "content": PROMPT
-            },
-            {
-                "role": "user",
-                "content": texto
+                "id": int(row["id"])
             }
-        ],
-        temperature=0
-    )
+        )
 
-    contenido = response.choices[0].message.content
+        return (
+            f"⏰ Te recordaré mañana: "
+            f"{row['descripcion']}"
+        )
 
-    if contenido.startswith("```json"):
+    # =====================================
+    # PAGAR RECORDATORIO
+    # =====================================
 
-        contenido = contenido.replace(
-            "```json",
+    if accion == "PAGAR_RECORDATORIO":
+
+        descripcion = resultado.get(
+            "descripcion",
             ""
         )
 
-        contenido = contenido.replace(
-            "```",
-            ""
+        recordatorios = obtener_dataframe(
+            f"""
+            SELECT *
+            FROM gastos.recordatorios
+            WHERE usuario_id =
+            {st.session_state["user_id"]}
+            AND pagado = FALSE
+            """
         )
 
-        contenido = contenido.strip()
+        if recordatorios.empty:
 
-    return json.loads(contenido)
-
-
-def obtener_saldo():
-
-    df = obtener_dataframe(
-        f"""
-        SELECT
-
-            COALESCE(
-                SUM(
-                    CASE
-                        WHEN tipo='INGRESO'
-                        THEN monto
-                        ELSE 0
-                    END
-                ),
-                0
+            return (
+                "⚠ No existen recordatorios pendientes."
             )
 
-            -
+        coincidencia = recordatorios[
+            recordatorios["descripcion"]
+            .str.upper()
+            .str.contains(
+                descripcion.upper(),
+                na=False
+            )
+        ]
 
-            COALESCE(
-                SUM(
-                    CASE
-                        WHEN tipo='GASTO'
-                        THEN monto
-                        ELSE 0
-                    END
-                ),
-                0
-            ) saldo
+        if coincidencia.empty:
 
-        FROM gastos.movimientos
+            return (
+                f"⚠ No encontré {descripcion}"
+            )
 
-        WHERE usuario_id =
-        {st.session_state["user_id"]}
-        """
-    )
+        row = coincidencia.iloc[0]
 
-    return float(
-        df.iloc[0]["saldo"]
-    )
+        frecuencia = str(
+            row["frecuencia"]
+        ).upper()
 
+        if frecuencia == "UNICO":
 
-def pantalla_asistente():
-
-    st.title("🤖 Asistente IA")
-
-    st.markdown(
-        """
-### Ejemplos
-
-- Compré una coca de 25 pesos
-- Gasté 350 en gasolina
-- Ya cayó el águila
-- Pago de nómina
-- Ya pagué Sears
-- Después Sears
-- Muéstrame estadísticas
-"""
-    )
-
-    texto = st.text_area(
-        "¿Qué pasó?"
-    )
-
-    # =====================================================
-    # ESPERANDO MONTO DE INGRESO
-    # =====================================================
-
-    if st.session_state.get(
-        "esperando_monto_ingreso",
-        False
-    ):
-
-        if st.button("Procesar"):
-
-            try:
-
-                monto = float(texto)
-
-                resultado = {
-                    "accion":
-                        "REGISTRAR_INGRESO",
-
-                    "concepto":
-                        "Ingreso",
-
-                    "origen_ingreso":
-                        "Ingreso",
-
-                    "monto":
-                        monto,
-
-                    "texto_original":
-                        texto
+            ejecutar_query(
+                """
+                UPDATE gastos.recordatorios
+                SET
+                    pagado = TRUE,
+                    fecha_ultimo_pago =
+                    CURRENT_DATE
+                WHERE id = :id
+                """,
+                {
+                    "id": int(row["id"])
                 }
-
-                mensaje = ejecutar_accion(
-                    resultado
-                )
-
-                st.session_state[
-                    "esperando_monto_ingreso"
-                ] = False
-
-                st.success(
-                    mensaje
-                )
-
-            except Exception:
-
-                st.warning(
-                    "Indica solamente el monto."
-                )
-
-        return
-
-    # =====================================================
-    # FLUJO NORMAL
-    # =====================================================
-
-    if st.button("Procesar"):
-
-        if not texto.strip():
-
-            st.warning(
-                "Escribe una descripción."
             )
 
-            return
+        else:
 
-        try:
-
-            intencion = detectar_intencion(
-                texto
+            ejecutar_query(
+                """
+                UPDATE gastos.recordatorios
+                SET
+                    fecha_ultimo_pago =
+                    CURRENT_DATE
+                WHERE id = :id
+                """,
+                {
+                    "id": int(row["id"])
+                }
             )
 
-            if intencion:
+        ejecutar_query(
+            """
+            INSERT INTO gastos.movimientos
+            (
+                usuario_id,
+                tipo,
+                categoria,
+                concepto,
+                monto,
+                texto_original
+            )
+            VALUES
+            (
+                :uid,
+                'GASTO',
+                'Recordatorio',
+                :concepto,
+                :monto,
+                :texto
+            )
+            """,
+            {
+                "uid":
+                    st.session_state["user_id"],
 
-                if (
-                    intencion["accion"]
-                    in
-                    [
-                        "ABRIR_DASHBOARD",
-                        "ABRIR_RECORDATORIOS",
-                        "PAGAR_RECORDATORIO",
-                        "POSPONER_RECORDATORIO",
-                        "PREGUNTAR_MONTO_INGRESO"
-                    ]
-                ):
+                "concepto":
+                    row["descripcion"],
 
-                    mensaje = ejecutar_accion(
-                        intencion
+                "monto":
+                    float(row["monto"]),
+
+                "texto":
+                    f"Pago automático de "
+                    f"{row['descripcion']}"
+            }
+        )
+
+        if frecuencia == "UNICO":
+
+            return (
+                f"✅ Marqué como pagado "
+                f"{row['descripcion']}"
+            )
+
+        return (
+            f"✅ Registré el pago de "
+            f"{row['descripcion']}.\n\n"
+            f"Se volverá a recordar según su frecuencia."
+        )
+
+    # =====================================
+    # REGISTRAR GASTO
+    # =====================================
+
+    if accion == "REGISTRAR_GASTO":
+
+        monto = float(
+            resultado.get(
+                "monto",
+                0
+            )
+        )
+
+        ejecutar_query(
+            """
+            INSERT INTO gastos.movimientos
+            (
+                usuario_id,
+                tipo,
+                categoria,
+                concepto,
+                monto,
+                texto_original
+            )
+            VALUES
+            (
+                :uid,
+                'GASTO',
+                :categoria,
+                :concepto,
+                :monto,
+                :texto
+            )
+            """,
+            {
+                "uid":
+                    st.session_state["user_id"],
+
+                "categoria":
+                    resultado.get(
+                        "categoria",
+                        "Otros"
+                    ),
+
+                "concepto":
+                    resultado.get(
+                        "concepto",
+                        "Gasto"
+                    ),
+
+                "monto":
+                    monto,
+
+                "texto":
+                    resultado.get(
+                        "texto_original",
+                        ""
                     )
+            }
+        )
 
-                    st.success(
-                        mensaje
-                    )
+        return (
+            f"✅ Gasto registrado "
+            f"${monto:,.2f}"
+        )
 
-                    return
+    # =====================================
+    # REGISTRAR INGRESO
+    # =====================================
 
-                else:
+    if accion == "REGISTRAR_INGRESO":
 
-                    resultado = interpretar_movimiento(
-                        texto
-                    )
-
-                    resultado["accion"] = (
-                        intencion["accion"]
-                    )
-
-            else:
-
-                resultado = interpretar_movimiento(
-                    texto
-                )
-
-            resultado["texto_original"] = texto
-
-            mensaje = ejecutar_accion(
-                resultado
+        monto = float(
+            resultado.get(
+                "monto",
+                0
             )
+        )
 
-            st.success(
-                mensaje
+        ejecutar_query(
+            """
+            INSERT INTO gastos.movimientos
+            (
+                usuario_id,
+                tipo,
+                categoria,
+                concepto,
+                monto,
+                texto_original,
+                origen_ingreso
             )
-
-        except Exception as e:
-
-            st.error(
-                f"Error: {str(e)}"
+            VALUES
+            (
+                :uid,
+                'INGRESO',
+                'Ingreso',
+                :concepto,
+                :monto,
+                :texto,
+                :origen
             )
+            """,
+            {
+                "uid":
+                    st.session_state["user_id"],
+
+                "concepto":
+                    resultado.get(
+                        "concepto",
+                        "Ingreso"
+                    ),
+
+                "monto":
+                    monto,
+
+                "texto":
+                    resultado.get(
+                        "texto_original",
+                        ""
+                    ),
+
+                "origen":
+                    resultado.get(
+                        "origen_ingreso",
+                        "Otro"
+                    )
+            }
+        )
+
+        return (
+            f"✅ Ingreso registrado "
+            f"${monto:,.2f}"
+        )
+
+    return "⚠ Acción no reconocida"
