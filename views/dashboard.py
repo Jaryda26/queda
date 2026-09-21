@@ -172,11 +172,13 @@ Reduce gastos para evitar terminar el periodo sin saldo.
             {
                 "Concepto": [
                     "Ingresos",
-                    "Gastos"
+                    "Gastos",
+                    "Disponible"
                 ],
                 "Monto": [
                     ingresos,
-                    gastos
+                    gastos,
+                    disponible
                 ]
             }
         )
@@ -185,8 +187,17 @@ Reduce gastos para evitar terminar el periodo sin saldo.
             graf,
             x="Concepto",
             y="Monto",
-            title="Ingresos vs Gastos",
-            color="Concepto"
+            title="Ingresos vs Gastos vs Disponible",
+            color="Concepto",
+            color_discrete_map={
+                "Ingresos": "#1abc9c",
+                "Gastos": "#e74c3c",
+                "Disponible": "#2ecc71"
+            }
+        )
+
+        fig.update_layout(
+            showlegend=False
         )
 
         st.plotly_chart(
