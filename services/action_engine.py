@@ -12,6 +12,18 @@ def ejecutar_accion(resultado):
     ).upper()
 
     # =====================================
+    # ABRIR INICIO
+    # =====================================
+
+    if accion == "ABRIR_INICIO":
+
+        st.session_state["pagina_actual"] = (
+            "🏠 Inicio"
+        )
+
+        return "🏠 Abriendo Inicio"
+
+    # =====================================
     # ABRIR DASHBOARD
     # =====================================
 
@@ -97,7 +109,8 @@ def ejecutar_accion(resultado):
         ejecutar_query(
             """
             UPDATE gastos.recordatorios
-            SET fecha_proxima_alerta =
+            SET
+                fecha_proxima_alerta =
                 CURRENT_DATE + INTERVAL '1 day'
             WHERE id = :id
             """,
@@ -166,8 +179,7 @@ def ejecutar_accion(resultado):
                 UPDATE gastos.recordatorios
                 SET
                     pagado = TRUE,
-                    fecha_ultimo_pago =
-                    CURRENT_DATE
+                    fecha_ultimo_pago = CURRENT_DATE
                 WHERE id = :id
                 """,
                 {
@@ -181,8 +193,7 @@ def ejecutar_accion(resultado):
                 """
                 UPDATE gastos.recordatorios
                 SET
-                    fecha_ultimo_pago =
-                    CURRENT_DATE
+                    fecha_ultimo_pago = CURRENT_DATE
                 WHERE id = :id
                 """,
                 {
@@ -222,8 +233,7 @@ def ejecutar_accion(resultado):
                     float(row["monto"]),
 
                 "texto":
-                    f"Pago automático de "
-                    f"{row['descripcion']}"
+                    f"Pago automático de {row['descripcion']}"
             }
         )
 
@@ -237,7 +247,8 @@ def ejecutar_accion(resultado):
         return (
             f"✅ Registré el pago de "
             f"{row['descripcion']}.\n\n"
-            f"Se volverá a recordar según su frecuencia."
+            f"Seguirá activo por ser "
+            f"{frecuencia}."
         )
 
     # =====================================

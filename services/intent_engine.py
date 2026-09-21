@@ -87,8 +87,8 @@ def detectar_categoria(texto):
             "uber",
             "didi",
             "taxi",
-            "caseta",
             "casetas",
+            "caseta",
             "estacionamiento"
         ],
 
@@ -104,8 +104,8 @@ def detectar_categoria(texto):
             "netflix",
             "spotify",
             "cine",
-            "disney",
-            "amazon prime"
+            "amazon prime",
+            "disney"
         ]
     }
 
@@ -126,9 +126,86 @@ def detectar_intencion(texto):
 
     texto = normalizar_texto(texto)
 
-    # ====================================
-    # PAGAR RECORDATORIOS
-    # ====================================
+    # ======================================
+    # INICIO
+    # ======================================
+
+    inicio = [
+
+        "inicio",
+        "home",
+        "pantalla inicial",
+        "pantalla principal"
+    ]
+
+    for palabra in inicio:
+
+        if palabra in texto:
+
+            return {
+                "accion": "ABRIR_INICIO"
+            }
+
+    # ======================================
+    # DASHBOARD
+    # ======================================
+
+    dashboard = [
+
+        "dashboard",
+
+        "estadisticas",
+        "estadísticas",
+
+        "como voy",
+        "cómo voy",
+
+        "mis gastos",
+
+        "mi resumen",
+        "resumen",
+
+        "cuanto me queda",
+        "cuánto me queda"
+    ]
+
+    for palabra in dashboard:
+
+        if palabra in texto:
+
+            return {
+                "accion": "ABRIR_DASHBOARD"
+            }
+
+    # ======================================
+    # RECORDATORIOS
+    # ======================================
+
+    recordatorios = [
+
+        "recordatorios",
+        "pendientes",
+
+        "vencimientos",
+
+        "que tengo pendiente",
+        "qué tengo pendiente",
+
+        "que debo pagar",
+        "qué debo pagar"
+    ]
+
+    for palabra in recordatorios:
+
+        if palabra in texto:
+
+            return {
+                "accion": "ABRIR_RECORDATORIOS"
+            }
+
+    # ======================================
+    # PAGAR RECORDATORIO
+    # ======================================
 
     pagos = [
 
@@ -158,19 +235,14 @@ def detectar_intencion(texto):
                 )
 
             return {
-                "accion":
-                    "PAGAR_RECORDATORIO",
-
-                "descripcion":
-                    descripcion.strip(),
-
-                "texto_original":
-                    texto_original
+                "accion": "PAGAR_RECORDATORIO",
+                "descripcion": descripcion.strip(),
+                "texto_original": texto_original
             }
 
-    # ====================================
-    # POSPONER RECORDATORIOS
-    # ====================================
+    # ======================================
+    # POSPONER RECORDATORIO
+    # ======================================
 
     posponer = [
 
@@ -182,11 +254,11 @@ def detectar_intencion(texto):
         "mas tarde",
         "más tarde",
 
-        "recordarme manana",
-        "recordame manana",
-
+        "mañana",
         "manana",
-        "mañana"
+
+        "recordarme manana",
+        "recordame manana"
     ]
 
     for palabra in posponer:
@@ -199,83 +271,16 @@ def detectar_intencion(texto):
             )
 
             return {
-                "accion":
-                    "POSPONER_RECORDATORIO",
-
-                "descripcion":
-                    descripcion.strip(),
-
-                "texto_original":
-                    texto_original
+                "accion": "POSPONER_RECORDATORIO",
+                "descripcion": descripcion.strip(),
+                "texto_original": texto_original
             }
 
-    # ====================================
-    # DASHBOARD
-    # ====================================
-
-    dashboard = [
-
-        "dashboard",
-
-        "estadisticas",
-        "estadísticas",
-
-        "como voy",
-        "cómo voy",
-
-        "mi resumen",
-        "resumen",
-
-        "mis gastos",
-
-        "cuanto me queda",
-        "cuánto me queda"
-    ]
-
-    for palabra in dashboard:
-
-        if palabra in texto:
-
-            return {
-                "accion":
-                    "ABRIR_DASHBOARD"
-            }
-
-    # ====================================
-    # RECORDATORIOS
-    # ====================================
-
-    recordatorios = [
-
-        "que tengo pendiente",
-        "qué tengo pendiente",
-
-        "recordatorios",
-
-        "pendientes",
-
-        "vencimientos",
-
-        "que debo pagar",
-        "qué debo pagar"
-    ]
-
-    for palabra in recordatorios:
-
-        if palabra in texto:
-
-            return {
-                "accion":
-                    "ABRIR_RECORDATORIOS"
-            }
-
-    # ====================================
+    # ======================================
     # INGRESOS SIN MONTO
-    # ====================================
+    # ======================================
 
     ingresos_sin_monto = [
-
-        # águila
 
         "ya cayo el aguila",
         "ya cayó el águila",
@@ -283,13 +288,14 @@ def detectar_intencion(texto):
         "ya cago el aguila",
         "ya cagó el águila",
 
-        # marrana
-
-        "ya chillo la marrana",
         "ya chillo la marrana",
         "ya chilló la marrana",
 
-        # feria
+        "ya cayo la quincena",
+        "ya cayó la quincena",
+
+        "ya cayo la raya",
+        "ya cayó la raya",
 
         "me cayo una feria",
         "me cayó una feria",
@@ -303,15 +309,16 @@ def detectar_intencion(texto):
         "cayo dinero",
         "cayó dinero",
 
-        # pagos
+        "ya entro dinero",
+        "ya entró dinero",
 
         "me pagaron",
+        "ya me pagaron",
 
         "me depositaron",
+        "ya me depositaron",
 
         "me transfirieron",
-
-        # nomina
 
         "nomina",
         "nómina",
@@ -321,7 +328,7 @@ def detectar_intencion(texto):
         "pago de nomina",
         "pago de nómina",
 
-        # extras
+        "pago de salario",
 
         "aguinaldo",
         "utilidades",
@@ -351,16 +358,13 @@ def detectar_intencion(texto):
         if palabra in texto:
 
             return {
-                "accion":
-                    "PREGUNTAR_MONTO_INGRESO",
-
-                "texto_original":
-                    texto_original
+                "accion": "PREGUNTAR_MONTO_INGRESO",
+                "texto_original": texto_original
             }
 
-    # ====================================
+    # ======================================
     # GASTOS
-    # ====================================
+    # ======================================
 
     gastos = [
 
@@ -412,14 +416,9 @@ def detectar_intencion(texto):
         if palabra in texto:
 
             return {
-                "accion":
-                    "REGISTRAR_GASTO",
-
-                "categoria":
-                    detectar_categoria(texto),
-
-                "texto_original":
-                    texto_original
+                "accion": "REGISTRAR_GASTO",
+                "categoria": detectar_categoria(texto),
+                "texto_original": texto_original
             }
 
     return None
