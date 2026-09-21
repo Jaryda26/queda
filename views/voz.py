@@ -31,14 +31,16 @@ def pantalla_voz():
         texto = speech_to_text(
             archivo_audio
         )
-
+        st.write("DEBUG TEXTO:", texto)
         if not texto:
 
             st.session_state["audio_global"] = None
 
-            return "⚠ No pude entender el audio."
+            return {
+                "tipo": "ERROR",
+                "mensaje": "⚠ No pude entender el audio."
+            }
 
-        # Guardamos el último comando para depuración
         st.session_state[
             "ultimo_texto_voz"
         ] = texto
@@ -46,7 +48,7 @@ def pantalla_voz():
         intencion = detectar_intencion(
             texto
         )
-
+        st.write("DEBUG INTENCION:", intencion)
         if intencion:
 
             intencion["texto_original"] = texto
@@ -56,44 +58,27 @@ def pantalla_voz():
                 ""
             )
 
-            # NAVEGACIÓN
-            if accion == "ABRIR_DASHBOARD":
+            # Navegación
 
-                st.session_state[
-                    "pagina_actual"
-                ] = "Dashboard"
+            if accion in [
+                "ABRIR_INICIO",
+                "ABRIR_DASHBOARD",
+                "ABRIR_RECORDATORIOS"
+            ]:
 
-                st.session_state[
-                    "audio_global"
-                ] = None
-
-                st.rerun()
-
-            if accion == "ABRIR_RECORDATORIOS":
-
-                st.session_state[
-                    "pagina_actual"
-                ] = "Recordatorios"
+                ejecutar_accion(
+                    intencion
+                )
 
                 st.session_state[
                     "audio_global"
                 ] = None
 
-                st.rerun()
+                return {
+                    "tipo": "NAVEGACION",
+                    "accion": accion
+                }
 
-            if accion == "ABRIR_INICIO":
-
-                st.session_state[
-                    "pagina_actual"
-                ] = "🏠 Inicio"
-
-                st.session_state[
-                    "audio_global"
-                ] = None
-
-                st.rerun()
-
-            # RESTO DE ACCIONES
             mensaje = ejecutar_accion(
                 intencion
             )
@@ -102,9 +87,10 @@ def pantalla_voz():
                 "audio_global"
             ] = None
 
-            return mensaje
-
-        # IA
+            return {
+                "tipo": "MENSAJE",
+                "mensaje": mensaje
+            }
 
         resultado = interpretar_movimiento(
             texto
@@ -120,7 +106,10 @@ def pantalla_voz():
             "audio_global"
         ] = None
 
-        return mensaje
+        return {
+            "tipo": "MENSAJE",
+            "mensaje": mensaje
+        }
 
     except Exception as e:
 
@@ -128,4 +117,7 @@ def pantalla_voz():
             "audio_global"
         ] = None
 
-        return f"❌ Error: {str(e)}"
+        return {
+            "tipo": "ERROR",
+            "mensaje": f"❌ Error: {str(e)}"
+        }

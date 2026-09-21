@@ -21,7 +21,7 @@ def ejecutar_accion(resultado):
             "🏠 Inicio"
         )
 
-        st.rerun()
+        return "🏠 Abriendo Inicio"
 
     # =====================================
     # ABRIR DASHBOARD
@@ -33,11 +33,7 @@ def ejecutar_accion(resultado):
             "Dashboard"
         )
 
-        st.session_state["debug_accion"] = (
-            "dashboard"
-        )
-
-        st.rerun()
+        return "📊 Abriendo Dashboard"
 
     # =====================================
     # ABRIR RECORDATORIOS
@@ -49,7 +45,7 @@ def ejecutar_accion(resultado):
             "Recordatorios"
         )
 
-        st.rerun()
+        return "🔔 Abriendo Recordatorios"
 
     # =====================================
     # PREGUNTAR MONTO INGRESO
