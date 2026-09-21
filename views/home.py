@@ -1,8 +1,12 @@
+import random
 import streamlit as st
+
 from datetime import date
 
 from db import obtener_dataframe
 from db import ejecutar_query
+
+from services.tts_service import texto_a_voz
 
 
 def registrar_pago(uid, descripcion, monto):
@@ -81,49 +85,22 @@ def obtener_resumen(uid):
         total_ingresos - total_gastos
     )
 
-    if presupuesto.empty:
+    porcentaje = 0
 
-        porcentaje = 0
-
-    else:
+    if not presupuesto.empty:
 
         monto_presupuesto = float(
             presupuesto.iloc[0]["monto"]
         )
 
-        porcentaje = (
-            total_gastos /
-            monto_presupuesto * 100
-        ) if monto_presupuesto > 0 else 0
+        if monto_presupuesto > 0:
+
+            porcentaje = (
+                total_gastos /
+                monto_presupuesto
+            ) * 100
 
     return disponible, porcentaje
-
-
-def saludo_financiero(
-    disponible,
-    porcentaje
-):
-
-    if porcentaje < 50:
-
-        return (
-            "🟢 Vas muy bien.\n\n"
-            "Tu ritmo de gasto está controlado."
-        )
-
-    if porcentaje < 80:
-
-        return (
-            "🟡 Atención.\n\n"
-            "Ya utilizaste más de la mitad "
-            "de tu presupuesto."
-        )
-
-    return (
-        "🔴 Cuidado.\n\n"
-        "Existe riesgo de exceder "
-        "tu presupuesto."
-    )
 
 
 def frase_del_dia():
@@ -138,14 +115,58 @@ def frase_del_dia():
 
         "🚦 Mantén el control de tus finanzas.",
 
-        "💳 Atiende tus compromisos antes de que se conviertan en problemas.",
+        "💳 Atiende tus compromisos antes del vencimiento.",
 
         "🧠 El hábito financiero vale más que cualquier herramienta."
     ]
 
-    return frases[
-        date.today().day % len(frases)
-    ]
+    return random.choice(frases)
+
+
+def generar_narrativa(
+    nombre,
+    disponible,
+    porcentaje,
+    recordatorios
+):
+
+    if porcentaje < 50:
+
+        estado = (
+            "Vas muy bien. "
+            "Tu ritmo de gasto está controlado."
+        )
+
+    elif porcentaje < 80:
+
+        estado = (
+            "Atención. Ya utilizaste más de la mitad "
+            "de tu presupuesto."
+        )
+
+    else:
+
+        estado = (
+            "Cuidado. Existe riesgo de exceder "
+            "tu presupuesto."
+        )
+
+    return f"""
+Hola {nombre}.
+
+Tu disponible actual es de
+{disponible:,.0f} pesos.
+
+Has utilizado
+{porcentaje:.1f} por ciento
+de tu presupuesto.
+
+Tienes
+{recordatorios}
+recordatorios pendientes.
+
+{estado}
+"""
 
 
 def pantalla_home():
@@ -158,6 +179,16 @@ def pantalla_home():
         obtener_resumen(uid)
     )
 
+    df_recordatorios = obtener_dataframe(
+        f"""
+        SELECT *
+        FROM gastos.recordatorios
+        WHERE usuario_id = {uid}
+        AND pagado = FALSE
+        ORDER BY fecha_vencimiento
+        """
+    )
+
     st.title(
         f"🔔 Buenos días {st.session_state['nombre']}"
     )
@@ -166,59 +197,56 @@ def pantalla_home():
         frase_del_dia()
     )
 
-    st.success(
-        f"""
-💰 Disponible actual:
-${disponible:,.2f}
-
-📊 Presupuesto utilizado:
-{porcentaje:.1f}%
-"""
+    narrativa = generar_narrativa(
+        st.session_state["nombre"],
+        disponible,
+        porcentaje,
+        len(df_recordatorios)
     )
 
-    st.warning(
-        saludo_financiero(
-            disponible,
-            porcentaje
-        )
-    )
+    st.success(narrativa)
+
+    # ====================================
+    # VOZ DE BIENVENIDA
+    # ====================================
+
+    if "saludo_reproducido" not in st.session_state:
+
+        try:
+
+            archivo_audio = texto_a_voz(
+                narrativa
+            )
+
+            st.audio(
+                archivo_audio
+            )
+
+            st.session_state[
+                "saludo_reproducido"
+            ] = True
+
+        except Exception:
+            pass
 
     st.markdown("---")
 
-    df = obtener_dataframe(
-        f"""
-        SELECT
-            id,
-            descripcion,
-            monto,
-            fecha_vencimiento,
-            dias_anticipacion,
-            frecuencia,
-            pagado
-        FROM gastos.recordatorios
-        WHERE usuario_id = {uid}
-        AND pagado = FALSE
-        ORDER BY fecha_vencimiento
-        """
-    )
-
     encontrados = 0
 
-    for _, row in df.iterrows():
+    for _, row in df_recordatorios.iterrows():
 
         if row["fecha_vencimiento"] is None:
             continue
 
-        fecha_vencimiento = row[
-            "fecha_vencimiento"
-        ]
+        fecha_vencimiento = (
+            row["fecha_vencimiento"]
+        )
 
         dias_restantes = (
             fecha_vencimiento - hoy
         ).days
 
-        # IMPORTANTE:
-        # si ya venció sigue apareciendo
+        # Si está vencido también se muestra
 
         if dias_restantes > int(
             row["dias_anticipacion"]
@@ -276,7 +304,7 @@ ${float(row['monto']):,.2f}
 """
         )
 
-        c1, c2 = st.columns(2)
+        c1, c2 = st.columns([1, 1])
 
         with c1:
 
@@ -291,20 +319,25 @@ ${float(row['monto']):,.2f}
                     float(row["monto"])
                 )
 
-                if str(
-                    row["frecuencia"]
-                ).upper() == "UNICO":
+                if (
+                    str(
+                        row["frecuencia"]
+                    ).upper()
+                    == "UNICO"
+                ):
 
                     ejecutar_query(
                         """
                         UPDATE gastos.recordatorios
                         SET
                             pagado = TRUE,
-                            fecha_ultimo_pago = CURRENT_DATE
+                            fecha_ultimo_pago =
+                            CURRENT_DATE
                         WHERE id = :id
                         """,
                         {
-                            "id": int(row["id"])
+                            "id":
+                                int(row["id"])
                         }
                     )
 
@@ -314,11 +347,13 @@ ${float(row['monto']):,.2f}
                         """
                         UPDATE gastos.recordatorios
                         SET
-                            fecha_ultimo_pago = CURRENT_DATE
+                            fecha_ultimo_pago =
+                            CURRENT_DATE
                         WHERE id = :id
                         """,
                         {
-                            "id": int(row["id"])
+                            "id":
+                                int(row["id"])
                         }
                     )
 
@@ -344,7 +379,8 @@ ${float(row['monto']):,.2f}
                     WHERE id = :id
                     """,
                     {
-                        "id": int(row["id"])
+                        "id":
+                            int(row["id"])
                     }
                 )
 
