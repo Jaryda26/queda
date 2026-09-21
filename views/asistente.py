@@ -33,18 +33,6 @@ POSPONER_RECORDATORIO
 ABRIR_DASHBOARD
 ABRIR_RECORDATORIOS
 
-Cuando detectes ingresos intenta extraer:
-
-concepto
-origen_ingreso
-monto
-
-Cuando detectes gastos intenta extraer:
-
-categoria
-concepto
-monto
-
 Ejemplos:
 
 Compré una coca de 25 pesos
@@ -177,7 +165,7 @@ def obtener_saldo():
                     END
                 ),
                 0
-            ) saldo
+            ) AS saldo
 
         FROM gastos.movimientos
 
@@ -215,7 +203,7 @@ def pantalla_asistente():
     )
 
     # ===================================================
-    # ESPERANDO MONTO PARA INGRESO
+    # ESPERANDO MONTO DE INGRESO
     # ===================================================
 
     if st.session_state.get(
@@ -230,20 +218,11 @@ def pantalla_asistente():
                 monto = float(texto)
 
                 resultado = {
-                    "accion":
-                        "REGISTRAR_INGRESO",
-
-                    "concepto":
-                        "Ingreso",
-
-                    "origen_ingreso":
-                        "Ingreso",
-
-                    "monto":
-                        monto,
-
-                    "texto_original":
-                        texto
+                    "accion": "REGISTRAR_INGRESO",
+                    "concepto": "Ingreso",
+                    "origen_ingreso": "Ingreso",
+                    "monto": monto,
+                    "texto_original": texto
                 }
 
                 mensaje = ejecutar_accion(
@@ -257,6 +236,21 @@ def pantalla_asistente():
                 st.success(
                     mensaje
                 )
+
+                try:
+
+                    saldo = obtener_saldo()
+
+                    st.info(
+                        f"""
+💰 Disponible actual
+
+${saldo:,.2f}
+"""
+                    )
+
+                except Exception:
+                    pass
 
             except Exception:
 
@@ -286,35 +280,31 @@ def pantalla_asistente():
                 texto
             )
 
-            if intencion:
+            if intencion["accion"] in [
+                "ABRIR_DASHBOARD",
+                "ABRIR_RECORDATORIOS",
+                "PAGAR_RECORDATORIO",
+                "POSPONER_RECORDATORIO",
+                "PREGUNTAR_MONTO_INGRESO"
+            ]:
 
-                if intencion["accion"] in [
-                    "ABRIR_DASHBOARD",
-                    "ABRIR_RECORDATORIOS",
-                    "PAGAR_RECORDATORIO",
-                    "POSPONER_RECORDATORIO",
-                    "PREGUNTAR_MONTO_INGRESO"
-                \]:
+                mensaje = ejecutar_accion(
+                    intencion
+                )
 
-                    mensaje = ejecutar_accion(
-                        intencion
-                   )
+                st.success(
+                    mensaje
+                )
 
-                    st.success(
-                        mensaje
-                    )
+                return
 
-                    return
+                resultado = interpretar_movimiento(
+                    texto
+                )
 
-                else:
-
-                    resultado = interpretar_movimiento(
-                        texto
-                    )
-
-                    resultado["accion"] = (
-                        intencion["accion"]
-                    )
+                resultado["accion"] = (
+                    intencion["accion"]
+                )
 
             else:
 
@@ -338,7 +328,7 @@ def pantalla_asistente():
 
                 st.info(
                     f"""
-💰 Disponible actual:
+💰 Disponible actual
 
 ${saldo:,.2f}
 """
