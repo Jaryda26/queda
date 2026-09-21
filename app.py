@@ -15,7 +15,6 @@ from views.asistente import pantalla_asistente
 from views.voz import pantalla_voz
 from views.aprendizaje import pantalla_aprendizaje
 
-
 st.set_page_config(
     page_title="Queda",
     page_icon="💰",
@@ -113,13 +112,29 @@ else:
         "🧠 Aprendizaje"
     ]
 
+    try:
+
+        indice = menu.index(
+            st.session_state["pagina_actual"]
+        )
+
+    except Exception:
+
+        indice = 0
+
     opcion = st.sidebar.radio(
         "Menú",
         menu,
+        index=indice,
         key="menu_principal"
     )
 
-    st.session_state["pagina_actual"] = opcion
+    # Solo actualiza cuando el usuario cambia manualmente
+    if opcion != st.session_state["pagina_actual"\]:
+
+        st.session_state["pagina_actual"] = (
+            opcion
+        )
 
     st.sidebar.markdown("---")
 
@@ -150,13 +165,17 @@ else:
             pantalla_presupuesto,
 
         "Recordatorios":
-            pantalla_recordatorios,
+           pantalla_recordatorios,
 
         "Asistente IA":
             pantalla_asistente,
 
         "🧠 Aprendizaje":
-            pantalla_aprendizaje,
+            pantalla_aprendizaje
     }
 
-    paginas[opcion]()
+    pagina = st.session_state[
+        "pagina_actual"
+    ]
+
+    paginas[pagina]()
