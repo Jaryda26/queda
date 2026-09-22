@@ -275,12 +275,6 @@ else:
         # sincronizamos el radio con la pantalla.
 
         st.session_state[
-            "menu_principal"
-        ] = st.session_state[
-            "pagina_actual"
-        ]
-
-        st.session_state[
             "debug_accion"
         ] = ""
 
