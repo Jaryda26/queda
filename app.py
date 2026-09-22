@@ -32,6 +32,9 @@ if "pagina_actual" not in st.session_state:
 if "audio_global" not in st.session_state:
     st.session_state["audio_global"] = None
 
+if "debug_accion" not in st.session_state:
+    st.session_state["debug_accion"] = ""
+
 # ==========================================
 # LOGIN
 # ==========================================
@@ -91,34 +94,7 @@ else:
                 dict
             ):
 
-                if respuesta.get("tipo") == "NAVEGACION":
-
-                    accion = respuesta.get(
-                        "accion",
-                        ""
-                    )
-
-                    if accion == "ABRIR_DASHBOARD":
-
-                        st.session_state[
-                            "pagina_actual"
-                        ] = "Dashboard"
-
-                    elif accion == "ABRIR_RECORDATORIOS":
-
-                        st.session_state[
-                            "pagina_actual"
-                        ] = "Recordatorios"
-
-                    elif accion == "ABRIR_INICIO":
-
-                        st.session_state[
-                            "pagina_actual"
-                        ] = "🏠 Inicio"
-
-                    st.rerun()
-
-                elif respuesta.get("tipo") == "MENSAJE":
+                if respuesta.get("tipo") == "MENSAJE":
 
                     st.sidebar.success(
                         respuesta["mensaje"]
@@ -149,10 +125,18 @@ else:
         "🧠 Aprendizaje"
     ]
 
+    # IMPORTANTE:
+    # El radio refleja pagina_actual
+    # y no al revés.
+
+    pagina_actual = st.session_state[
+        "pagina_actual"
+    ]
+
     try:
 
         indice = menu.index(
-            st.session_state["pagina_actual"]
+            pagina_actual
         )
 
     except Exception:
@@ -166,17 +150,32 @@ else:
         key="menu_principal"
     )
 
-    if opcion != st.session_state["pagina_actual"]:
+    # Sólo cambia cuando el usuario lo cambia manualmente
+
+    if (
+        opcion != pagina_actual
+        and
+        st.session_state.get(
+            "debug_accion",
+            ""
+        ) == ""
+    ):
 
         st.session_state[
             "pagina_actual"
         ] = opcion
 
+    # limpiar debug después del cambio
+
+    st.session_state[
+        "debug_accion"
+    ] = ""
+
     st.sidebar.markdown("---")
 
     if st.sidebar.button(
         "Cerrar Sesión",
-       use_container_width=True
+        use_container_width=True
     ):
 
         st.session_state.clear()
