@@ -276,6 +276,13 @@ def ejecutar_accion(resultado):
             )
         )
 
+        if monto <= 0:
+
+            return (
+                "⚠ No pude identificar "
+                "el importe del gasto."
+            )
+
         ejecutar_query(
             """
             INSERT INTO gastos.movimientos
@@ -341,6 +348,13 @@ def ejecutar_accion(resultado):
                 0
             )
         )
+
+        if monto <= 0:
+
+            return (
+                "⚠ No pude identificar "
+                "el importe del ingreso."
+            )
 
         ejecutar_query(
             """

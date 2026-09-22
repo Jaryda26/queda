@@ -31,8 +31,7 @@ def normalizar_texto(texto):
         "pago de nomina": "nomina",
         "pago nomina": "nomina",
 
-        "ya cago el aguila": "ya cayo el aguila",
-        "ya cago la quincena": "ya cayo la quincena"
+        "ya cago el aguila": "ya cayo el aguila"
     }
 
     for viejo, nuevo in reemplazos.items():
@@ -68,8 +67,7 @@ def detectar_categoria(texto):
             "restaurante",
             "coca",
             "refresco",
-            "cafe",
-            "cafeteria"
+            "cafe"
         ],
 
         "Servicios": [
@@ -96,8 +94,7 @@ def detectar_categoria(texto):
             "doctor",
             "medico",
             "hospital",
-            "farmacia",
-            "medicina"
+            "farmacia"
         ],
 
         "Entretenimiento": [
@@ -131,7 +128,6 @@ def detectar_intencion(texto):
     # ======================================
 
     inicio = [
-
         "inicio",
         "home",
         "pantalla inicial",
@@ -151,20 +147,14 @@ def detectar_intencion(texto):
     # ======================================
 
     dashboard = [
-
         "dashboard",
-
         "estadisticas",
         "estadísticas",
-
         "como voy",
         "cómo voy",
-
         "mis gastos",
-
         "mi resumen",
         "resumen",
-
         "cuanto me queda",
         "cuánto me queda"
     ]
@@ -182,15 +172,11 @@ def detectar_intencion(texto):
     # ======================================
 
     recordatorios = [
-
         "recordatorios",
         "pendientes",
-
         "vencimientos",
-
         "que tengo pendiente",
         "qué tengo pendiente",
-
         "que debo pagar",
         "qué debo pagar"
     ]
@@ -208,16 +194,12 @@ def detectar_intencion(texto):
     # ======================================
 
     pagos = [
-
         "ya pague",
         "ya pagué",
-
         "quedo pagado",
         "quedó pagado",
-
         "liquide",
         "liquidé",
-
         "liquidado"
     ]
 
@@ -245,18 +227,13 @@ def detectar_intencion(texto):
     # ======================================
 
     posponer = [
-
         "despues",
         "después",
-
         "luego",
-
         "mas tarde",
         "más tarde",
-
         "mañana",
         "manana",
-
         "recordarme manana",
         "recordame manana"
     ]
@@ -365,60 +342,31 @@ def detectar_intencion(texto):
     # ======================================
     # GASTOS
     # ======================================
-
-    gastos = [
-
-        "compre",
-        "compré",
-
-        "gaste",
-        "gasté",
-
-        "consumi",
-        "consumí",
-
-        "inverti",
-        "invertí",
-
-        "gasolina",
-
-        "uber",
-        "taxi",
-
-        "tacos",
-        "comida",
-
-        "coca",
-        "refresco",
-
-        "internet",
-        "luz",
-        "agua",
-
-        "netflix",
-        "spotify",
-        "prime",
-
-        "sanborns",
-        "sears",
-
-        "farmacia",
-        "doctor",
-
-        "se me fue",
-
-        "me compre",
-        "me compré"
-    ]
-
-    for palabra in gastos:
-
-        if palabra in texto:
-
-            return {
-                "accion": "REGISTRAR_GASTO",
-                "categoria": detectar_categoria(texto),
-                "texto_original": texto_original
-            }
+    #
+    # NO SE INTERCEPTAN.
+    #
+    # Se dejan pasar a OpenAI
+    # para extraer:
+    #
+    # concepto
+    # categoria
+    # monto
+    #
+    # Ejemplo:
+    #
+    # Compré una coca de 25 pesos
+    #
+    # ↓
+    #
+    # OpenAI:
+    #
+    # {
+    #   "accion":"REGISTRAR_GASTO",
+    #   "concepto":"Coca",
+    #   "categoria":"Comida",
+    #   "monto":25
+    # }
+    #
+    # ======================================
 
     return None
