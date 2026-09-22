@@ -236,20 +236,38 @@ else:
         "pagina_actual"
     ]
 
-    try:
+    if (
+        "menu_principal"
+        not in st.session_state
+    ):
 
-        indice = menu.index(
-            pagina_actual
-        )
+        st.session_state[
+            "menu_principal"
+        ] = st.session_state[
+            "pagina_actual"
+        ]
 
-    except Exception:
+    # Sincronización automática
 
-        indice = 0
+    if (
+        st.session_state[
+            "menu_principal"
+        ]
+        !=
+        st.session_state[
+            "pagina_actual"
+        ]
+    ):
+
+        st.session_state[
+            "menu_principal"
+        ] = st.session_state[
+            "pagina_actual"
+        ]
 
     opcion = st.sidebar.radio(
         "Menú",
         menu,
-        index=indice,
         key="menu_principal"
     )
 
