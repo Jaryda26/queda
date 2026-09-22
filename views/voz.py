@@ -78,7 +78,7 @@ def pantalla_voz():
                     "tipo": "NAVEGACION",
                     "accion": accion
                 }
-
+            st.write("DEBUG RESULTADO:", resultado)
             mensaje = ejecutar_accion(
                 intencion
             )
