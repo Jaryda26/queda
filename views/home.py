@@ -151,6 +151,7 @@ def frase_del_dia():
 
 
 def generar_narrativa(
+   
     nombre,
     disponible,
     porcentaje,
@@ -216,9 +217,12 @@ def pantalla_home():
         """
     )
 
+    nombre = st.session_state["nombre"].split()[0]
+
     st.title(
-        f"{saludo_hora()} {st.session_state['nombre']}"
+        f"{saludo_hora()} {nombre}"
     )
+
     if st.session_state.get(
         "ultimo_texto_voz"
     ):
