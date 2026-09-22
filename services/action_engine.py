@@ -60,6 +60,81 @@ def ejecutar_accion(resultado):
         st.rerun()
 
     # =====================================
+    # ABRIR MOVIMIENTOS
+    # =====================================
+    if accion == "ABRIR_MOVIMIENTOS":
+
+        st.session_state["pagina_actual"] = (
+            "Movimientos"
+        )
+
+        st.session_state[
+            "debug_accion"
+        ] = "movimientos"
+
+        st.rerun()
+
+    # =====================================
+    # ABRIR HISTORIAL
+    # =====================================
+    if accion == "ABRIR_HISTORIAL":
+
+        st.session_state["pagina_actual"] = (
+            "Historial"
+        )
+
+        st.session_state[
+            "debug_accion"
+        ] = "historial"
+
+        st.rerun()
+
+    # =====================================
+    # ABRIR PRESUPUESTO
+    # =====================================
+    if accion == "ABRIR_PRESUPUESTO":
+
+        st.session_state["pagina_actual"] = (
+            "Presupuesto"
+        )
+
+        st.session_state[
+            "debug_accion"
+        ] = "presupuesto"
+
+        st.rerun()
+
+    # =====================================
+    # ABRIR APRENDIZAJE
+    # =====================================
+    if accion == "ABRIR_APRENDIZAJE":
+
+        st.session_state["pagina_actual"] = (
+            "🧠 Aprendizaje"
+        )
+
+        st.session_state[
+            "debug_accion"
+        ] = "aprendizaje"
+
+        st.rerun()
+
+    # =====================================
+    # ABRIR ASISTENTE
+    # =====================================
+    if accion == "ABRIR_ASISTENTE":
+
+        st.session_state["pagina_actual"] = (
+            "Asistente IA"
+        )
+
+        st.session_state[
+            "debug_accion"
+        ] = "asistente"
+
+        st.rerun()
+        
+    # =====================================
     # PREGUNTAR MONTO INGRESO
     # =====================================
 

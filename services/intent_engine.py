@@ -167,6 +167,106 @@ def detectar_intencion(texto):
                 "accion": "ABRIR_DASHBOARD"
             }
 
+        # ======================================
+    # MOVIMIENTOS
+    # ======================================
+
+    movimientos = [
+
+        "movimientos",
+        "capturas",
+        "captura",
+        "registro de gastos"
+    ]
+
+    for palabra in movimientos:
+
+        if palabra in texto:
+
+            return {
+                "accion": "ABRIR_MOVIMIENTOS"
+            }
+
+    # ======================================
+    # HISTORIAL
+    # ======================================
+
+    historial = [
+
+        "historial",
+        "mis movimientos",
+        "todas mis compras",
+        "todos mis gastos"
+    ]
+
+    for palabra in historial:
+
+        if palabra in texto:
+
+            return {
+                "accion": "ABRIR_HISTORIAL"
+            }
+
+    # ======================================
+    # PRESUPUESTO
+    # ======================================
+
+    presupuesto = [
+
+        "presupuesto",
+        "mi presupuesto",
+        "configurar presupuesto"
+    ]
+
+    for palabra in presupuesto:
+
+        if palabra in texto:
+
+            return {
+                "accion": "ABRIR_PRESUPUESTO"
+            }
+
+    # ======================================
+    # APRENDIZAJE
+    # ======================================
+
+    aprendizaje = [
+
+        "aprendizaje",
+        "frases aprendidas",
+        "diccionario",
+        "diccionario personal"
+    ]
+
+    for palabra in aprendizaje:
+
+        if palabra in texto:
+
+            return {
+                "accion": "ABRIR_APRENDIZAJE"
+            }
+
+    # ======================================
+    # ASISTENTE
+    # ======================================
+
+    asistente = [
+
+        "asistente",
+        "ia",
+        "inteligencia artificial"
+    ]
+
+    for palabra in asistente:
+
+        if palabra in texto:
+
+            return {
+                "accion": "ABRIR_ASISTENTE"
+            }
+
+
+
     # ======================================
     # RECORDATORIOS
     # ======================================

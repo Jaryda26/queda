@@ -22,9 +22,9 @@ st.set_page_config(
     layout="wide"
 )
 
-# ==========================================
+# =====================================================
 # ESTADO GLOBAL
-# ==========================================
+# =====================================================
 
 if "pagina_actual" not in st.session_state:
     st.session_state["pagina_actual"] = "🏠 Inicio"
@@ -32,12 +32,15 @@ if "pagina_actual" not in st.session_state:
 if "audio_global" not in st.session_state:
     st.session_state["audio_global"] = None
 
+if "ultimo_audio_hash" not in st.session_state:
+    st.session_state["ultimo_audio_hash"] = None
+
 if "debug_accion" not in st.session_state:
     st.session_state["debug_accion"] = ""
 
-# ==========================================
+# =====================================================
 # LOGIN
-# ==========================================
+# =====================================================
 
 if "user_id" not in st.session_state:
 
@@ -54,9 +57,9 @@ if "user_id" not in st.session_state:
     else:
         pantalla_registro()
 
-# ==========================================
+# =====================================================
 # USUARIO AUTENTICADO
-# ==========================================
+# =====================================================
 
 else:
 
@@ -79,6 +82,10 @@ else:
         icon_size="2x"
     )
 
+    # =====================================
+    # PROCESAMIENTO DE VOZ
+    # =====================================
+
     if audio_bytes:
 
         st.session_state["audio_global"] = (
@@ -93,18 +100,122 @@ else:
                 respuesta,
                 dict
             ):
+                
+                if (
+                    respuesta.get("tipo")
+                    == "NAVEGACION"
+                ):
 
-                if respuesta.get("tipo") == "MENSAJE":
+                    accion = respuesta.get(
+                        "accion",
+                        ""
+                    )
+
+                    if accion == "ABRIR_INICIO":
+
+                        st.session_state[
+                            "pagina_actual"
+                        ] = "🏠 Inicio"
+
+                    elif accion == "ABRIR_DASHBOARD":
+
+                        st.session_state[
+                            "pagina_actual"
+                        ] = "Dashboard"
+
+                    elif (
+                        accion
+                        ==
+                        "ABRIR_RECORDATORIOS"
+                    ):
+
+                        st.session_state[
+                            "pagina_actual"
+                        ] = "Recordatorios"
+
+                    elif (
+                        accion
+                        ==
+                        "ABRIR_PRESUPUESTO"
+                    ):
+
+                        st.session_state[
+                            "pagina_actual"
+                        ] = "Presupuesto"
+
+                    elif (
+                        accion
+                        ==
+                        "ABRIR_HISTORIAL"
+                    ):
+
+                        st.session_state[
+                            "pagina_actual"
+                        ] = "Historial"
+
+                    elif (
+                        accion
+                        ==
+                        "ABRIR_MOVIMIENTOS"
+                    ):
+
+                        st.session_state[
+                            "pagina_actual"
+                        ] = "Movimientos"
+
+                    elif (
+                        accion
+                        ==
+                        "ABRIR_APRENDIZAJE"
+                    ):
+
+                        st.session_state[
+                            "pagina_actual"
+                        ] = "🧠 Aprendizaje"
+
+                    elif (
+                        accion
+                        ==
+                        "ABRIR_ASISTENTE"
+                    ):
+
+                        st.session_state[
+                            "pagina_actual"
+                        ] = "Asistente IA"
+
+                    st.session_state[
+                        "audio_global"
+                    ] = None
+                    st.session_state[
+                        "menu_principal"
+                    ] = st.session_state[
+                        "pagina_actual"
+                    ]
+                    st.rerun()
+
+                elif (
+                    respuesta.get("tipo")
+                    == "MENSAJE"
+                ):
 
                     st.sidebar.success(
                         respuesta["mensaje"]
                     )
 
-                elif respuesta.get("tipo") == "ERROR":
+                elif (
+                    respuesta.get("tipo")
+                    == "ERROR"
+                ):
 
-                    st.sidebar.error(
+                    if (
                         respuesta["mensaje"]
-                    )
+                        !=
+                        "⚠ Audio ya procesado."
+                    ):
+
+                        st.sidebar.error(
+                            respuesta["mensaje"]
+                        )
 
         except Exception as e:
 
@@ -124,10 +235,6 @@ else:
         "Asistente IA",
         "🧠 Aprendizaje"
     ]
-
-    # IMPORTANTE:
-    # El radio refleja pagina_actual
-    # y no al revés.
 
     pagina_actual = st.session_state[
         "pagina_actual"
@@ -150,26 +257,36 @@ else:
         key="menu_principal"
     )
 
-    # Sólo cambia cuando el usuario lo cambia manualmente
+    # Solo aceptar cambios manuales del menú
+    # cuando no vienen de voz.
 
     if (
         opcion != pagina_actual
         and
-        st.session_state.get(
+        not st.session_state.get(
             "debug_accion",
             ""
-        ) == ""
+        )
     ):
 
         st.session_state[
             "pagina_actual"
         ] = opcion
 
-    # limpiar debug después del cambio
+    else:
 
-    st.session_state[
-        "debug_accion"
-    ] = ""
+        # Cuando la navegación viene por voz,
+        # sincronizamos el radio con la pantalla.
+
+        st.session_state[
+            "menu_principal"
+        ] = st.session_state[
+            "pagina_actual"
+        ]
+
+        st.session_state[
+            "debug_accion"
+        ] = ""
 
     st.sidebar.markdown("---")
 
@@ -209,21 +326,6 @@ else:
             pantalla_aprendizaje
     }
 
-    pagina_actual = st.session_state[
-        "pagina_actual"
-    ]
-
-    st.write(
-        "DEBUG PAGINA:",
-        pagina_actual
-    )
-
-    st.write(
-        "DEBUG ACCION:",
-        st.session_state.get(
-            "debug_accion",
-            ""
-        )
-    )
-
-    paginas[pagina_actual]()
+    paginas[
+        st.session_state["pagina_actual"]
+    ]()
