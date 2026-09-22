@@ -2,13 +2,21 @@ import random
 import streamlit as st
 
 from datetime import date
-from datetime import datetime
+
 
 from db import obtener_dataframe
 from db import ejecutar_query
 
 from services.tts_service import texto_a_voz
+
 from datetime import datetime
+from zoneinfo import ZoneInfo
+
+ahora = datetime.now(
+    ZoneInfo("America/Mexico_City")
+)
+
+hora = ahora.hour
 
 st.write(
     "DEBUG HORA:",
