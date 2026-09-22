@@ -16,16 +16,14 @@ ahora = datetime.now(
     ZoneInfo("America/Mexico_City")
 )
 
-hora = ahora.hour
-
 st.write(
-    "DEBUG HORA:",
-    datetime.now()
+    "DEBUG HORA CDMX:",
+    ahora
 )
 
 st.write(
-    "DEBUG HOUR:",
-    datetime.now().hour
+    "DEBUG HOUR CDMX:",
+    ahora.hour
 )
 def saludo_hora():
 
