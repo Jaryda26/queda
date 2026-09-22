@@ -1,4 +1,5 @@
 import tempfile
+import hashlib
 import streamlit as st
 
 from services.speech_service import speech_to_text
@@ -17,6 +18,23 @@ def pantalla_voz():
     if not audio_bytes:
         return None
 
+    audio_hash = hashlib.md5(
+        audio_bytes
+    ).hexdigest()
+
+    if st.session_state.get(
+        "ultimo_audio_hash"
+    ) == audio_hash:
+
+        return {
+            "tipo": "ERROR",
+            "mensaje": "⚠ Audio ya procesado."
+        }
+
+    st.session_state[
+        "ultimo_audio_hash"
+    ] = audio_hash
+
     try:
 
         with tempfile.NamedTemporaryFile(
@@ -31,7 +49,7 @@ def pantalla_voz():
         texto = speech_to_text(
             archivo_audio
         )
-        st.write("DEBUG TEXTO:", texto)
+
         if not texto:
 
             st.session_state["audio_global"] = None
@@ -48,7 +66,7 @@ def pantalla_voz():
         intencion = detectar_intencion(
             texto
         )
-        st.write("DEBUG INTENCION:", intencion)
+
         if intencion:
 
             intencion["texto_original"] = texto
@@ -58,27 +76,28 @@ def pantalla_voz():
                 ""
             )
 
-            # Navegación
+            # IMPORTANTE:
+            # limpiar audio antes del rerun
 
-            if accion in [
+            if accion in (
                 "ABRIR_INICIO",
                 "ABRIR_DASHBOARD",
                 "ABRIR_RECORDATORIOS"
-            ]:
-
-                ejecutar_accion(
-                    intencion
-                )
+            ):
 
                 st.session_state[
                     "audio_global"
                 ] = None
 
+                ejecutar_accion(
+                    intencion
+                )
+
                 return {
                     "tipo": "NAVEGACION",
                     "accion": accion
                 }
-            st.write("DEBUG RESULTADO:", resultado)
+
             mensaje = ejecutar_accion(
                 intencion
             )
@@ -96,7 +115,9 @@ def pantalla_voz():
             texto
         )
 
-        resultado["texto_original"] = texto
+        resultado[
+            "texto_original"
+        ] = texto
 
         mensaje = ejecutar_accion(
             resultado

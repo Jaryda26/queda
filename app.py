@@ -15,6 +15,7 @@ from views.asistente import pantalla_asistente
 from views.voz import pantalla_voz
 from views.aprendizaje import pantalla_aprendizaje
 
+
 st.set_page_config(
     page_title="Queda",
     page_icon="💰",
@@ -85,15 +86,49 @@ else:
 
             respuesta = pantalla_voz()
 
-            if (
-                isinstance(respuesta, dict)
-                and
-                respuesta.get("tipo") == "MENSAJE"
+            if isinstance(
+                respuesta,
+                dict
             ):
 
-                st.sidebar.success(
-                    respuesta["mensaje"]
-                )
+                if respuesta.get("tipo") == "NAVEGACION":
+
+                    accion = respuesta.get(
+                        "accion",
+                        ""
+                    )
+
+                    if accion == "ABRIR_DASHBOARD":
+
+                        st.session_state[
+                            "pagina_actual"
+                        ] = "Dashboard"
+
+                    elif accion == "ABRIR_RECORDATORIOS":
+
+                        st.session_state[
+                            "pagina_actual"
+                        ] = "Recordatorios"
+
+                    elif accion == "ABRIR_INICIO":
+
+                        st.session_state[
+                            "pagina_actual"
+                        ] = "🏠 Inicio"
+
+                    st.rerun()
+
+                elif respuesta.get("tipo") == "MENSAJE":
+
+                    st.sidebar.success(
+                        respuesta["mensaje"]
+                    )
+
+                elif respuesta.get("tipo") == "ERROR":
+
+                    st.sidebar.error(
+                        respuesta["mensaje"]
+                    )
 
         except Exception as e:
 
@@ -133,13 +168,15 @@ else:
 
     if opcion != st.session_state["pagina_actual"]:
 
-        st.session_state["pagina_actual"] = opcion
+        st.session_state[
+            "pagina_actual"
+        ] = opcion
 
     st.sidebar.markdown("---")
 
     if st.sidebar.button(
         "Cerrar Sesión",
-        use_container_width=True
+       use_container_width=True
     ):
 
         st.session_state.clear()
@@ -176,9 +213,10 @@ else:
     pagina_actual = st.session_state[
         "pagina_actual"
     ]
+
     st.write(
         "DEBUG PAGINA:",
-        st.session_state["pagina_actual"]
+        pagina_actual
     )
 
     st.write(
@@ -188,4 +226,5 @@ else:
             ""
         )
     )
+
     paginas[pagina_actual]()

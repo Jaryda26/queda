@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 
 from db import obtener_dataframe
 from db import ejecutar_query
@@ -34,6 +35,21 @@ def pantalla_historial():
         )
 
         return
+
+    try:
+
+        df["fecha"] = pd.to_datetime(
+            df["fecha"]
+        )
+
+        # Ajuste horario local
+        df["fecha"] = (
+            df["fecha"]
+            - pd.Timedelta(hours=6)
+        )
+
+    except Exception:
+        pass
 
     for _, row in df.iterrows():
 
