@@ -83,7 +83,17 @@ else:
 
         try:
 
-            pantalla_voz()
+            respuesta = pantalla_voz()
+
+            if (
+                isinstance(respuesta, dict)
+                and
+                respuesta.get("tipo") == "MENSAJE"
+            ):
+
+                st.sidebar.success(
+                    respuesta["mensaje"]
+                )
 
         except Exception as e:
 
