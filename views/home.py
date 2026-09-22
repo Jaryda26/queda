@@ -16,28 +16,25 @@ ahora = datetime.now(
     ZoneInfo("America/Mexico_City")
 )
 
-st.write(
-    "DEBUG HORA CDMX:",
-    ahora
-)
-
-st.write(
-    "DEBUG HOUR CDMX:",
-    ahora.hour
-)
 def saludo_hora():
 
-    hora = datetime.now().hour
+    ahora = datetime.now(
+        ZoneInfo("America/Mexico_City"
+        )
+    )
+    hora = ahora.hour
 
     if hora < 12:
 
         return "☀️ Buenos días"
 
-    if hora < 19:
+    elif hora < 19:
 
         return "🌤️ Buenas tardes"
 
-    return "🌙 Buenas noches"
+    else:
+
+        return "🌙 Buenas noches"
 
 def registrar_pago(uid, descripcion, monto):
 
