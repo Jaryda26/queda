@@ -8,7 +8,17 @@ from db import obtener_dataframe
 from db import ejecutar_query
 
 from services.tts_service import texto_a_voz
+from datetime import datetime
 
+st.write(
+    "DEBUG HORA:",
+    datetime.now()
+)
+
+st.write(
+    "DEBUG HOUR:",
+    datetime.now().hour
+)
 def saludo_hora():
 
     hora = datetime.now().hour
@@ -204,7 +214,7 @@ def pantalla_home():
     )
 
     st.title(
-        f"🔔 {saludo_hora()} {st.session_state['nombre']}"
+        f"{saludo_hora()} {st.session_state['nombre']}"
     )
     if st.session_state.get(
         "ultimo_texto_voz"
