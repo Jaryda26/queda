@@ -2,12 +2,26 @@ import random
 import streamlit as st
 
 from datetime import date
+from datetime import datetime
 
 from db import obtener_dataframe
 from db import ejecutar_query
 
 from services.tts_service import texto_a_voz
 
+def saludo_hora():
+
+    hora = datetime.now().hour
+
+    if hora < 12:
+
+        return "☀️ Buenos días"
+
+    if hora < 19:
+
+        return "🌤️ Buenas tardes"
+
+    return "🌙 Buenas noches"
 
 def registrar_pago(uid, descripcion, monto):
 
@@ -190,9 +204,8 @@ def pantalla_home():
     )
 
     st.title(
-        f"🔔 Buenos días {st.session_state['nombre']}"
+        f"🔔 {saludo_hora()} {st.session_state['nombre']}"
     )
-
     if st.session_state.get(
         "ultimo_texto_voz"
     ):
