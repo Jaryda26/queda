@@ -186,11 +186,7 @@ else:
                     st.session_state[
                         "audio_global"
                     ] = None
-                    st.session_state[
-                        "menu_principal"
-                    ] = st.session_state[
-                        "pagina_actual"
-                    ]
+                    
                     st.rerun()
 
                 elif (
