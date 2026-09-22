@@ -217,7 +217,7 @@ def pantalla_home():
         """
     )
 
-    nombre = st.session_state["nombre"].split()[0]
+    nombre = st.session_state["nombre_corto"].split()[0]
 
     st.title(
         f"{saludo_hora()} {nombre}"
@@ -236,7 +236,7 @@ def pantalla_home():
     )
 
     narrativa = generar_narrativa(
-        st.session_state["nombre"],
+        st.session_state["nombre_corto"],
         disponible,
         porcentaje,
         len(df_recordatorios)
