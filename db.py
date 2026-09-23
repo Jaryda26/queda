@@ -25,6 +25,25 @@ def ejecutar_query(query, params=None):
         )
 
 
+def ejecutar_query_retornando(query, params=None):
+    """
+    Como ejecutar_query, pero para INSERT/UPDATE con RETURNING:
+    hace fetchone() DENTRO de la misma transacción, antes de que
+    la conexión se cierre. Usar ejecutar_query normal para eso
+    truena (la conexión ya está cerrada cuando intentas leer la
+    fila) — probado, no es hipotético.
+    """
+
+    with engine.begin() as conn:
+
+        resultado = conn.execute(
+            text(query),
+            params or {}
+        )
+
+        return resultado.fetchone()
+
+
 def obtener_dataframe(query, params=None):
 
     with engine.connect() as conn:

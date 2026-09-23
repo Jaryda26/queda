@@ -38,13 +38,14 @@ def saludo_hora():
 
         return "🌙 Buenas noches"
 
-def registrar_pago(uid, descripcion, monto):
+def registrar_pago(uid, cuenta_id, descripcion, monto):
 
     ejecutar_query(
         """
         INSERT INTO gastos.movimientos
         (
             usuario_id,
+            cuenta_id,
             tipo,
             categoria,
             concepto,
@@ -54,6 +55,7 @@ def registrar_pago(uid, descripcion, monto):
         VALUES
         (
             :uid,
+            :cuenta_id,
             'GASTO',
             'Recordatorio',
             :concepto,
@@ -63,6 +65,7 @@ def registrar_pago(uid, descripcion, monto):
         """,
         {
             "uid": uid,
+            "cuenta_id": cuenta_id,
             "concepto": descripcion,
             "monto": monto,
             "texto": f"Pago automático de {descripcion}"
@@ -93,6 +96,7 @@ def frase_del_dia():
 def pantalla_home():
 
     uid = st.session_state["user_id"]
+    cuenta_id = st.session_state["cuenta_id"]
 
     hoy = date.today()
 
@@ -100,11 +104,11 @@ def pantalla_home():
         """
         SELECT *
         FROM gastos.recordatorios
-        WHERE usuario_id = :uid
+        WHERE cuenta_id = :cuenta_id
         AND pagado = FALSE
         ORDER BY fecha_vencimiento
         """,
-        {"uid": uid}
+        {"cuenta_id": cuenta_id}
     )
 
     nombre = st.session_state["nombre_corto"].split()[0]
@@ -125,7 +129,7 @@ def pantalla_home():
         frase_del_dia()
     )
 
-    narrativa = generar_narrativa_ia(uid)
+    narrativa = generar_narrativa_ia(cuenta_id)
 
     st.success(narrativa)
 
@@ -273,6 +277,7 @@ def pantalla_home():
 
                             registrar_pago(
                                 uid,
+                                cuenta_id,
                                 row["descripcion"],
                                 float(row["monto"])
                             )

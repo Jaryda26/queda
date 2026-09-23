@@ -41,7 +41,7 @@ def _sumar(query, params):
     return float(valor) if valor is not None else 0.0
 
 
-def calcular_datos_proyeccion(uid):
+def calcular_datos_proyeccion(cuenta_id):
     """
     Calcula, en Python puro (sin IA), los datos financieros que
     alimentan el mensaje de bienvenida: estos números son la fuente
@@ -64,18 +64,18 @@ def calcular_datos_proyeccion(uid):
         """
         SELECT COALESCE(SUM(monto),0)
         FROM gastos.movimientos
-        WHERE tipo='INGRESO' AND usuario_id = :uid
+        WHERE tipo='INGRESO' AND cuenta_id = :cuenta_id
         """,
-        {"uid": uid}
+        {"cuenta_id": cuenta_id}
     )
 
     gastos_totales = _sumar(
         """
         SELECT COALESCE(SUM(monto),0)
         FROM gastos.movimientos
-        WHERE tipo='GASTO' AND usuario_id = :uid
+        WHERE tipo='GASTO' AND cuenta_id = :cuenta_id
         """,
-        {"uid": uid}
+        {"cuenta_id": cuenta_id}
     )
 
     datos["disponible_actual"] = round(
@@ -86,11 +86,11 @@ def calcular_datos_proyeccion(uid):
         """
         SELECT monto, fecha_inicio, fecha_fin
         FROM gastos.presupuestos
-        WHERE usuario_id = :uid
+        WHERE cuenta_id = :cuenta_id
         ORDER BY id DESC
         LIMIT 1
         """,
-        {"uid": uid}
+        {"cuenta_id": cuenta_id}
     )
 
     if not presupuesto_df.empty:
@@ -106,11 +106,11 @@ def calcular_datos_proyeccion(uid):
             """
             SELECT COALESCE(SUM(monto),0)
             FROM gastos.movimientos
-            WHERE tipo='GASTO' AND usuario_id = :uid
+            WHERE tipo='GASTO' AND cuenta_id = :cuenta_id
             AND fecha::date BETWEEN :inicio AND :fin
             """,
             {
-                "uid": uid,
+                "cuenta_id": cuenta_id,
                 "inicio": fecha_inicio,
                 "fin": fecha_fin
             }
@@ -147,10 +147,10 @@ def calcular_datos_proyeccion(uid):
             """
             SELECT descripcion, monto, fecha_vencimiento
             FROM gastos.recordatorios
-            WHERE usuario_id = :uid AND pagado = FALSE
+            WHERE cuenta_id = :cuenta_id AND pagado = FALSE
             ORDER BY fecha_vencimiento
             """,
-            {"uid": uid}
+            {"cuenta_id": cuenta_id}
         )
 
         datos["recordatorios_pendientes"] = len(recordatorios_df)
@@ -268,7 +268,7 @@ def _narrativa_plantilla(datos):
     return " ".join(partes)
 
 
-def generar_narrativa_ia(uid):
+def generar_narrativa_ia(cuenta_id):
     """
     Genera el mensaje del día: los datos se calculan siempre en
     Python (fuente de verdad, cero riesgo de cifras inventadas) y
@@ -278,7 +278,7 @@ def generar_narrativa_ia(uid):
     plantillas usando los mismos datos — el saludo nunca se cae.
     """
 
-    datos = calcular_datos_proyeccion(uid)
+    datos = calcular_datos_proyeccion(cuenta_id)
 
     try:
 

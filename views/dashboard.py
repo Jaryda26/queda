@@ -19,7 +19,7 @@ color:white'>
 
 def pantalla_dashboard():
 
-    uid = st.session_state["user_id"]
+    cuenta_id = st.session_state["cuenta_id"]
 
     ingresos_df = obtener_dataframe(
         """
@@ -27,9 +27,9 @@ def pantalla_dashboard():
             COALESCE(SUM(monto),0) total
         FROM gastos.movimientos
         WHERE tipo='INGRESO'
-        AND usuario_id = :uid
+        AND cuenta_id = :cuenta_id
         """,
-        {"uid": uid}
+        {"cuenta_id": cuenta_id}
     )
 
     gastos_df = obtener_dataframe(
@@ -38,20 +38,20 @@ def pantalla_dashboard():
             COALESCE(SUM(monto),0) total
         FROM gastos.movimientos
         WHERE tipo='GASTO'
-        AND usuario_id = :uid
+        AND cuenta_id = :cuenta_id
         """,
-        {"uid": uid}
+        {"cuenta_id": cuenta_id}
     )
 
     presupuesto_df = obtener_dataframe(
         """
         SELECT monto
         FROM gastos.presupuestos
-        WHERE usuario_id = :uid
+        WHERE cuenta_id = :cuenta_id
         ORDER BY id DESC
         LIMIT 1
         """,
-        {"uid": uid}
+        {"cuenta_id": cuenta_id}
     )
 
     ingresos = float(
@@ -220,10 +220,10 @@ Reduce gastos para evitar terminar el periodo sin saldo.
                 SUM(monto) monto
             FROM gastos.movimientos
             WHERE tipo='GASTO'
-            AND usuario_id = :uid
+            AND cuenta_id = :cuenta_id
             GROUP BY categoria
             """,
-            {"uid": uid}
+            {"cuenta_id": cuenta_id}
         )
 
         if not categorias.empty:
@@ -282,12 +282,12 @@ por día.
             SUM(monto) total
         FROM gastos.movimientos
         WHERE tipo='GASTO'
-        AND usuario_id = :uid
+        AND cuenta_id = :cuenta_id
         GROUP BY categoria
         ORDER BY total DESC
         LIMIT 1
         """,
-        {"uid": uid}
+        {"cuenta_id": cuenta_id}
     )
 
     if not top_categoria.empty:
@@ -312,11 +312,11 @@ ${top_categoria.iloc[0]['total']:,.2f}
             tipo,
             monto
         FROM gastos.movimientos
-        WHERE usuario_id = :uid
+        WHERE cuenta_id = :cuenta_id
         ORDER BY fecha DESC
         LIMIT 10
         """,
-        {"uid": uid}
+        {"cuenta_id": cuenta_id}
     )
 
     st.markdown(

@@ -165,10 +165,10 @@ def ejecutar_accion(resultado):
             """
             SELECT *
             FROM gastos.recordatorios
-            WHERE usuario_id = :uid
+            WHERE cuenta_id = :cuenta_id
             AND pagado = FALSE
             """,
-            {"uid": st.session_state["user_id"]}
+            {"cuenta_id": st.session_state["cuenta_id"]}
         )
 
         if recordatorios.empty:
@@ -227,10 +227,10 @@ def ejecutar_accion(resultado):
             """
             SELECT *
             FROM gastos.recordatorios
-            WHERE usuario_id = :uid
+            WHERE cuenta_id = :cuenta_id
             AND pagado = FALSE
             """,
-            {"uid": st.session_state["user_id"]}
+            {"cuenta_id": st.session_state["cuenta_id"]}
         )
 
         if recordatorios.empty:
@@ -267,6 +267,7 @@ def ejecutar_accion(resultado):
             INSERT INTO gastos.movimientos
             (
                 usuario_id,
+                cuenta_id,
                 tipo,
                 categoria,
                 concepto,
@@ -276,6 +277,7 @@ def ejecutar_accion(resultado):
             VALUES
             (
                 :uid,
+                :cuenta_id,
                 'GASTO',
                 'Recordatorio',
                 :concepto,
@@ -286,6 +288,9 @@ def ejecutar_accion(resultado):
             {
                 "uid":
                     st.session_state["user_id"],
+
+                "cuenta_id":
+                    st.session_state["cuenta_id"],
 
                 "concepto":
                     row["descripcion"],
@@ -337,6 +342,7 @@ def ejecutar_accion(resultado):
             INSERT INTO gastos.movimientos
             (
                 usuario_id,
+                cuenta_id,
                 tipo,
                 categoria,
                 concepto,
@@ -346,6 +352,7 @@ def ejecutar_accion(resultado):
             VALUES
             (
                 :uid,
+                :cuenta_id,
                 'GASTO',
                 :categoria,
                 :concepto,
@@ -356,6 +363,9 @@ def ejecutar_accion(resultado):
             {
                 "uid":
                     st.session_state["user_id"],
+
+                "cuenta_id":
+                    st.session_state["cuenta_id"],
 
                 "categoria":
                     resultado.get(
@@ -410,6 +420,7 @@ def ejecutar_accion(resultado):
             INSERT INTO gastos.movimientos
             (
                 usuario_id,
+                cuenta_id,
                 tipo,
                 categoria,
                 concepto,
@@ -420,6 +431,7 @@ def ejecutar_accion(resultado):
             VALUES
             (
                 :uid,
+                :cuenta_id,
                 'INGRESO',
                 'Ingreso',
                 :concepto,
@@ -431,6 +443,9 @@ def ejecutar_accion(resultado):
             {
                 "uid":
                     st.session_state["user_id"],
+
+                "cuenta_id":
+                    st.session_state["cuenta_id"],
 
                 "concepto":
                     resultado.get(

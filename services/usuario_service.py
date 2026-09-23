@@ -1,5 +1,7 @@
 import bcrypt
-from db import ejecutar_query, obtener_dataframe
+from sqlalchemy import text
+
+from db import engine, obtener_dataframe
 
 
 def registrar_usuario(nombre, email, password):
@@ -22,19 +24,55 @@ def registrar_usuario(nombre, email, password):
         bcrypt.gensalt()
     ).decode()
 
-    ejecutar_query(
-        """
-        INSERT INTO gastos.usuarios (nombre, email, password_hash)
-        VALUES (:nombre, :email, :hash)
-        """,
-        {
-            "nombre": nombre.strip(),
-            "email": email_normalizado,
-            "hash": hash_password
-        }
-    )
+    nombre_limpio = nombre.strip()
 
-    return True, "Cuenta creada correctamente."
+    # Un usuario nuevo siempre arranca con su propia cuenta
+    # INDIVIDUAL (puede unirse a una cuenta FAMILIAR después con
+    # un código de invitación — ver services/cuenta_service.py).
+    # Las 3 inserciones van en una sola transacción: si algo falla
+    # a la mitad, no queda una cuenta huérfana sin usuario.
+
+    with engine.begin() as conn:
+
+        cuenta_id = conn.execute(
+            text(
+                """
+                INSERT INTO gastos.cuentas (nombre, tipo)
+                VALUES (:nombre, 'INDIVIDUAL')
+                RETURNING id
+                """
+            ),
+            {"nombre": f"Cuenta de {nombre_limpio}"}
+        ).fetchone()[0]
+
+        conn.execute(
+            text(
+                """
+                INSERT INTO gastos.usuarios
+                (nombre, email, password_hash, cuenta_id, rol_cuenta)
+                VALUES
+                (:nombre, :email, :hash, :cuenta_id, 'ADMIN')
+                """
+            ),
+            {
+                "nombre": nombre_limpio,
+                "email": email_normalizado,
+                "hash": hash_password,
+                "cuenta_id": cuenta_id
+            }
+        )
+
+        conn.execute(
+            text(
+                """
+                INSERT INTO gastos.suscripciones (cuenta_id, status)
+                VALUES (:cuenta_id, 'incomplete')
+                """
+            ),
+            {"cuenta_id": cuenta_id}
+        )
+
+    return True, "Cuenta creada correctamente. Ahora elige tu plan para activarla."
 
 
 def validar_usuario(email, password):

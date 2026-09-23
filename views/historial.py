@@ -7,7 +7,7 @@ from db import ejecutar_query
 
 def pantalla_historial():
 
-    uid = st.session_state["user_id"]
+    cuenta_id = st.session_state["cuenta_id"]
 
     st.title("📜 Historial")
 
@@ -23,10 +23,10 @@ def pantalla_historial():
             origen_ingreso,
             texto_original
         FROM gastos.movimientos
-        WHERE usuario_id = :uid
+        WHERE cuenta_id = :cuenta_id
         ORDER BY fecha DESC
         """,
-        {"uid": uid}
+        {"cuenta_id": cuenta_id}
     )
 
     if df.empty:

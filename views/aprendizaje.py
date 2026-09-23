@@ -7,6 +7,7 @@ from db import obtener_dataframe
 def pantalla_aprendizaje():
 
     uid = st.session_state["user_id"]
+    cuenta_id = st.session_state["cuenta_id"]
 
     st.title("🧠 Aprendizaje")
 
@@ -61,6 +62,7 @@ Ejemplos:
                 INSERT INTO gastos.diccionario_usuario
                 (
                     usuario_id,
+                    cuenta_id,
                     frase,
                     accion,
                     categoria
@@ -68,6 +70,7 @@ Ejemplos:
                 VALUES
                 (
                     :uid,
+                    :cuenta_id,
                     :frase,
                     :accion,
                     :categoria
@@ -75,6 +78,7 @@ Ejemplos:
                 """,
                 {
                     "uid": uid,
+                    "cuenta_id": cuenta_id,
                     "frase": frase.strip(),
                     "accion": accion,
                     "categoria": categoria
@@ -102,10 +106,10 @@ Ejemplos:
             categoria,
             fecha_creacion
         FROM gastos.diccionario_usuario
-        WHERE usuario_id = :uid
+        WHERE cuenta_id = :cuenta_id
         ORDER BY id DESC
         """,
-        {"uid": uid}
+        {"cuenta_id": cuenta_id}
     )
 
     if df.empty:

@@ -161,9 +161,9 @@ def obtener_saldo():
 
         FROM gastos.movimientos
 
-        WHERE usuario_id = :uid
+        WHERE cuenta_id = :cuenta_id
         """,
-        {"uid": st.session_state["user_id"]}
+        {"cuenta_id": st.session_state["cuenta_id"]}
     )
 
     return float(

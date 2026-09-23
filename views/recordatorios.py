@@ -9,6 +9,7 @@ from services.recordatorios_service import marcar_pagado
 def pantalla_recordatorios():
 
     uid = st.session_state["user_id"]
+    cuenta_id = st.session_state["cuenta_id"]
 
     st.title("🔔 Recordatorios")
 
@@ -54,6 +55,7 @@ def pantalla_recordatorios():
             INSERT INTO gastos.recordatorios
             (
                 usuario_id,
+                cuenta_id,
                 descripcion,
                 monto,
                 fecha_vencimiento,
@@ -63,6 +65,7 @@ def pantalla_recordatorios():
             VALUES
             (
                 :uid,
+                :cuenta_id,
                 :descripcion,
                 :monto,
                 :fecha_vencimiento,
@@ -72,6 +75,7 @@ def pantalla_recordatorios():
             """,
             {
                 "uid": uid,
+                "cuenta_id": cuenta_id,
                 "descripcion": descripcion,
                 "monto": monto,
                 "fecha_vencimiento": fecha_vencimiento,
@@ -104,10 +108,10 @@ def pantalla_recordatorios():
             pagado,
             fecha_ultimo_pago
         FROM gastos.recordatorios
-        WHERE usuario_id = :uid
+        WHERE cuenta_id = :cuenta_id
         ORDER BY fecha_vencimiento
         """,
-        {"uid": uid}
+        {"cuenta_id": cuenta_id}
     )
 
     if df.empty:

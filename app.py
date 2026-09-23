@@ -14,6 +14,10 @@ from views.recordatorios import pantalla_recordatorios
 from views.asistente import pantalla_asistente
 from views.voz import pantalla_voz
 from views.aprendizaje import pantalla_aprendizaje
+from views.suscripcion import pantalla_suscripcion
+from views.cuenta import pantalla_cuenta
+
+from services.billing_service import tiene_suscripcion_activa
 
 
 st.set_page_config(
@@ -63,6 +67,8 @@ if "user_id" not in st.session_state:
 
 else:
 
+    cuenta_id = st.session_state["cuenta_id"]
+
     st.sidebar.success(
         st.session_state.get(
             "nombre",
@@ -71,6 +77,30 @@ else:
     )
 
     st.sidebar.markdown("---")
+
+    # =====================================
+    # PAYWALL: sin plan activo, solo puede
+    # ver/elegir un plan o cerrar sesión.
+    # =====================================
+
+    if not tiene_suscripcion_activa(cuenta_id):
+
+        st.sidebar.warning(
+            "Activa un plan para usar Queda."
+        )
+
+        if st.sidebar.button(
+            "Cerrar Sesión",
+            use_container_width=True
+        ):
+
+            st.session_state.clear()
+
+            st.rerun()
+
+        pantalla_suscripcion()
+
+        st.stop()
 
     st.sidebar.markdown("### 🎤 Queda")
 
@@ -229,7 +259,9 @@ else:
         "Presupuesto",
         "Recordatorios",
         "Asistente IA",
-        "🧠 Aprendizaje"
+        "🧠 Aprendizaje",
+        "👨‍👩‍👧 Cuenta",
+        "💳 Suscripción"
     ]
 
     if (
@@ -334,7 +366,13 @@ else:
             pantalla_asistente,
 
         "🧠 Aprendizaje":
-            pantalla_aprendizaje
+            pantalla_aprendizaje,
+
+        "👨‍👩‍👧 Cuenta":
+            pantalla_cuenta,
+
+        "💳 Suscripción":
+            pantalla_suscripcion
     }
 
     paginas[

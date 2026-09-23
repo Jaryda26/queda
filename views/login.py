@@ -32,13 +32,25 @@ def pantalla_login():
 
         if usuario is not None:
 
-            login_user(
-                int(usuario["id"]),
-                usuario["nombre"],
-                usuario["email"]
-            )
+            if usuario["cuenta_id"] is None:
 
-            st.rerun()
+                st.error(
+                    "Tu cuenta todavía no tiene una 'cuenta' "
+                    "asignada (falta correr la migración del "
+                    "servidor). Contacta al administrador."
+                )
+
+            else:
+
+                login_user(
+                    int(usuario["id"]),
+                    usuario["nombre"],
+                    usuario["email"],
+                    int(usuario["cuenta_id"]),
+                    usuario["rol_cuenta"]
+                )
+
+                st.rerun()
 
         else:
 

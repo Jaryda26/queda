@@ -7,6 +7,7 @@ def pantalla_movimientos():
     st.title("💳 Movimientos")
 
     uid = st.session_state["user_id"]
+    cuenta_id = st.session_state["cuenta_id"]
 
     tipo = st.selectbox(
         "Tipo",
@@ -46,11 +47,12 @@ def pantalla_movimientos():
             ejecutar_query(
                 """
                 INSERT INTO gastos.movimientos
-                (usuario_id, tipo, categoria, concepto, monto)
-                VALUES (:u, :t, :cat, :c, :m)
+                (usuario_id, cuenta_id, tipo, categoria, concepto, monto)
+                VALUES (:u, :cuenta_id, :t, :cat, :c, :m)
                 """,
                 {
                     "u": uid,
+                    "cuenta_id": cuenta_id,
                     "t": tipo,
                     "cat": categoria,
                     "c": concepto.strip(),

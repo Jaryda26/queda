@@ -10,6 +10,7 @@ from db import obtener_dataframe
 def pantalla_presupuesto():
 
     uid = st.session_state["user_id"]
+    cuenta_id = st.session_state["cuenta_id"]
 
     st.title("🎯 Presupuesto")
 
@@ -17,11 +18,11 @@ def pantalla_presupuesto():
         """
         SELECT *
         FROM gastos.presupuestos
-        WHERE usuario_id = :uid
+        WHERE cuenta_id = :cuenta_id
         ORDER BY id DESC
         LIMIT 1
         """,
-        {"uid": uid}
+        {"cuenta_id": cuenta_id}
     )
 
     monto_default = 0.0
@@ -100,6 +101,7 @@ Modifica los valores y presiona
                 INSERT INTO gastos.presupuestos
                 (
                     usuario_id,
+                    cuenta_id,
                     tipo_periodo,
                     monto,
                     fecha_inicio,
@@ -108,6 +110,7 @@ Modifica los valores y presiona
                 VALUES
                 (
                     :usuario_id,
+                    :cuenta_id,
                     :tipo_periodo,
                     :monto,
                     :fecha_inicio,
@@ -116,6 +119,7 @@ Modifica los valores y presiona
                 """,
                 {
                     "usuario_id": uid,
+                    "cuenta_id": cuenta_id,
                     "tipo_periodo": tipo,
                     "monto": monto,
                     "fecha_inicio": fecha_inicio,
@@ -171,11 +175,11 @@ Modifica los valores y presiona
             fecha_fin,
             fecha_creacion
         FROM gastos.presupuestos
-        WHERE usuario_id = :uid
+        WHERE cuenta_id = :cuenta_id
         ORDER BY id DESC
         LIMIT 10
         """,
-        {"uid": uid}
+        {"cuenta_id": cuenta_id}
     )
 
     st.markdown("### Historial")
