@@ -269,11 +269,7 @@ def pantalla_home():
 
     st.markdown("---")
 
-    # ====================================
-    # PREPARAR TARJETAS DE RECORDATORIOS
-    # ====================================
-
-    tarjetas = []
+    encontrados = 0
 
     for _, row in df_recordatorios.iterrows():
 
@@ -294,6 +290,8 @@ def pantalla_home():
             row["dias_anticipacion"]
         ):
             continue
+
+        encontrados += 1
 
         if dias_restantes < 0:
 
@@ -330,137 +328,107 @@ def pantalla_home():
                 f"{dias_restantes} día(s)"
             )
 
-        tarjetas.append(
-            {
-                "row": row,
-                "icono": icono,
-                "mensaje": mensaje,
-            }
+        st.markdown(
+            f"""
+### {icono} {row['descripcion']}
+
+💰 Monto:
+${float(row['monto']):,.2f}
+
+📅 {mensaje}
+
+🔁 Frecuencia:
+{row['frecuencia']}
+"""
         )
 
-    encontrados = len(tarjetas)
+        c1, c2 = st.columns([1, 1])
 
-    # ====================================
-    # RENDERIZAR TARJETAS EN HORIZONTAL
-    # ====================================
+        with c1:
 
-    TARJETAS_POR_FILA = 3
+            if st.button(
+                "✅ Pagado",
+                key=f"pagado_{row['id']}"
+            ):
 
-    for i in range(0, len(tarjetas), TARJETAS_POR_FILA):
+                registrar_pago(
+                    uid,
+                    row["descripcion"],
+                    float(row["monto"])
+                )
 
-        fila = tarjetas[i:i + TARJETAS_POR_FILA]
-        columnas = st.columns(len(fila))
+                if (
+                    str(
+                        row["frecuencia"]
+                    ).upper()
+                    == "UNICO"
+                ):
 
-        for col, tarjeta in zip(columnas, fila):
-
-            row = tarjeta["row"]
-            icono = tarjeta["icono"]
-            mensaje = tarjeta["mensaje"]
-
-            with col:
-
-                with st.container(border=True):
-
-                    st.markdown(
-                        f"**{icono} {row['descripcion']}**"
+                    ejecutar_query(
+                        """
+                        UPDATE gastos.recordatorios
+                        SET
+                            pagado = TRUE,
+                            fecha_ultimo_pago =
+                            CURRENT_DATE
+                        WHERE id = :id
+                        """,
+                        {
+                            "id":
+                                int(row["id"])
+                        }
                     )
 
-                    st.markdown(
-                        f"💰 ${float(row['monto']):,.2f}"
+                else:
+
+                    ejecutar_query(
+                        """
+                        UPDATE gastos.recordatorios
+                        SET
+                            fecha_ultimo_pago =
+                            CURRENT_DATE
+                        WHERE id = :id
+                        """,
+                        {
+                            "id":
+                                int(row["id"])
+                        }
                     )
 
-                    st.caption(f"📅 {mensaje}")
-                    st.caption(
-                        f"🔁 {row['frecuencia']}"
-                    )
+                st.success(
+                    "✅ Pago registrado"
+                )
 
-                    b1, b2 = st.columns([1, 1])
+                st.rerun()
 
-                    with b1:
+        with c2:
 
-                        if st.button(
-                            "✅ Pagado",
-                            key=f"pagado_{row['id']}",
-                            use_container_width=True
-                        ):
+            if st.button(
+                "⏰ Después",
+                key=f"despues_{row['id']}"
+            ):
 
-                            registrar_pago(
-                                uid,
-                                row["descripcion"],
-                                float(row["monto"])
-                            )
+                ejecutar_query(
+                    """
+                    UPDATE gastos.recordatorios
+                    SET
+                        fecha_proxima_alerta =
+                        CURRENT_DATE + INTERVAL '1 day'
+                    WHERE id = :id
+                    """,
+                    {
+                        "id":
+                            int(row["id"])
+                    }
+                )
 
-                            if (
-                                str(
-                                    row["frecuencia"]
-                                ).upper()
-                                == "UNICO"
-                            ):
+                st.success(
+                    "⏰ Te lo recordaré mañana"
+                )
 
-                                ejecutar_query(
-                                    """
-                                    UPDATE gastos.recordatorios
-                                    SET
-                                        pagado = TRUE,
-                                        fecha_ultimo_pago =
-                                        CURRENT_DATE
-                                    WHERE id = :id
-                                    """,
-                                    {
-                                        "id":
-                                            int(row["id"])
-                                    }
-                                )
+                st.rerun()
 
-                            else:
-
-                                ejecutar_query(
-                                    """
-                                    UPDATE gastos.recordatorios
-                                    SET
-                                        fecha_ultimo_pago =
-                                        CURRENT_DATE
-                                    WHERE id = :id
-                                    """,
-                                    {
-                                        "id":
-                                            int(row["id"])
-                                    }
-                                )
-
-                            st.success(
-                                "✅ Pago registrado"
-                            )
-
-                            st.rerun()
-
-                    with b2:
-
-                        if st.button(
-                            "⏰ Después",
-                            key=f"despues_{row['id']}",
-                            use_container_width=True
-                        ):
-
-                            ejecutar_query(
-                                """
-                                UPDATE gastos.recordatorios
-                                SET
-                                    fecha_proxima_alerta =
-                                    CURRENT_DATE + INTERVAL '1 day'
-                                WHERE id = :id
-                                """,
-                                {
-                                    "id":
-                                        int(row["id"])
-                                }
-                            )
-
-                            st.success(
-                                "⏰ Te lo recordaré mañana"
-                            )
-
-                            st.rerun()
+        st.divider()
 
     if encontrados == 0:
 
