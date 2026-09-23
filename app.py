@@ -232,10 +232,6 @@ else:
         "🧠 Aprendizaje"
     ]
 
-    pagina_actual = st.session_state[
-        "pagina_actual"
-    ]
-
     if (
         "menu_principal"
         not in st.session_state
@@ -247,20 +243,38 @@ else:
             "pagina_actual"
         ]
 
-    # Sincronización automática
-
     if (
+        "pagina_sincronizada"
+        not in st.session_state
+    ):
+
         st.session_state[
-            "menu_principal"
-        ]
-        !=
-        st.session_state[
+            "pagina_sincronizada"
+        ] = st.session_state[
             "pagina_actual"
         ]
+
+    # Sincronización automática:
+    # solo forzamos el radio cuando "pagina_actual"
+    # cambió por fuera del propio radio (ej. por voz),
+    # es decir, cuando ya no coincide con la última
+    # página que sincronizamos. Así no pisamos un clic
+    # manual que el usuario acaba de hacer en el radio.
+
+    if (
+        st.session_state["pagina_actual"]
+        !=
+        st.session_state["pagina_sincronizada"]
     ):
 
         st.session_state[
             "menu_principal"
+        ] = st.session_state[
+            "pagina_actual"
+        ]
+
+        st.session_state[
+            "pagina_sincronizada"
         ] = st.session_state[
             "pagina_actual"
         ]
@@ -271,30 +285,19 @@ else:
         key="menu_principal"
     )
 
-    # Solo aceptar cambios manuales del menú
-    # cuando no vienen de voz.
+    # Si el usuario cambió el radio manualmente,
+    # "opcion" ya trae el nuevo valor: lo reflejamos
+    # en pagina_actual y en el snapshot de sincronía.
 
-    if (
-        opcion != pagina_actual
-        and
-        not st.session_state.get(
-            "debug_accion",
-            ""
-        )
-    ):
+    if opcion != st.session_state["pagina_actual"]:
 
         st.session_state[
             "pagina_actual"
         ] = opcion
 
-    else:
-
-        # Cuando la navegación viene por voz,
-        # sincronizamos el radio con la pantalla.
-
         st.session_state[
-            "debug_accion"
-        ] = ""
+            "pagina_sincronizada"
+        ] = opcion
 
     st.sidebar.markdown("---")
 

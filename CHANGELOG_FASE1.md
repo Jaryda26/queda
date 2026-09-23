@@ -61,3 +61,28 @@
   empezado a pensar en el modelo de suscripción. Lo voy a retomar cuando
   ataquemos la fase de cobros/planes.
 - `.env` ya está en `.gitignore`, así que no debería llegar a tu repo.
+
+---
+
+# Fix adicional — Menú lateral no respondía al mouse
+
+**Síntoma:** solo se podía cambiar de pantalla por voz; el clic en el
+menú de la barra lateral no hacía nada.
+
+**Causa** (`app.py`): el bloque "Sincronización automática" (pensado
+para que el radio del menú reflejara los cambios hechos por voz) se
+ejecutaba *antes* de dibujar el radio button, comparando
+`menu_principal` (que Streamlit ya había actualizado con tu clic)
+contra `pagina_actual` (que todavía no se había actualizado). Como
+diferían, el bloque asumía que había que "resincronizar" y pisaba tu
+clic, devolviendo el radio a la página anterior antes de que se
+alcanzara a procesar.
+
+**Fix:** reemplacé esa comparación por una variable de control
+(`pagina_sincronizada`) que guarda la última página que ya quedó
+reflejada en el radio. Solo se fuerza el radio cuando `pagina_actual`
+cambió *por fuera* del propio widget (es decir, por voz) — un clic
+manual ya no se pisa. De paso quedó sin uso la bandera
+`debug_accion` que se usaba para este mismo propósito; la dejé
+inicializada (no rompe nada) pero ya no se lee en ningún lado —
+es candidata a limpieza en la siguiente pasada.
