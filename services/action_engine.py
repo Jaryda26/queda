@@ -2,6 +2,7 @@ import streamlit as st
 
 from db import ejecutar_query
 from db import obtener_dataframe
+from services.recordatorios_service import marcar_pagado
 
 
 def ejecutar_accion(resultado):
@@ -161,13 +162,13 @@ def ejecutar_accion(resultado):
         )
 
         recordatorios = obtener_dataframe(
-            f"""
+            """
             SELECT *
             FROM gastos.recordatorios
-            WHERE usuario_id =
-            {st.session_state["user_id"]}
+            WHERE usuario_id = :uid
             AND pagado = FALSE
-            """
+            """,
+            {"uid": st.session_state["user_id"]}
         )
 
         if recordatorios.empty:
@@ -223,13 +224,13 @@ def ejecutar_accion(resultado):
         )
 
         recordatorios = obtener_dataframe(
-            f"""
+            """
             SELECT *
             FROM gastos.recordatorios
-            WHERE usuario_id =
-            {st.session_state["user_id"]}
+            WHERE usuario_id = :uid
             AND pagado = FALSE
-            """
+            """,
+            {"uid": st.session_state["user_id"]}
         )
 
         if recordatorios.empty:
@@ -255,38 +256,11 @@ def ejecutar_accion(resultado):
 
         row = coincidencia.iloc[0]
 
-        frecuencia = str(
+        marcar_pagado(
+            int(row["id"]),
+            row["fecha_vencimiento"],
             row["frecuencia"]
-        ).upper()
-
-        if frecuencia == "UNICO":
-
-            ejecutar_query(
-                """
-                UPDATE gastos.recordatorios
-                SET
-                    pagado = TRUE,
-                    fecha_ultimo_pago = CURRENT_DATE
-                WHERE id = :id
-                """,
-                {
-                    "id": int(row["id"])
-                }
-            )
-
-        else:
-
-            ejecutar_query(
-                """
-                UPDATE gastos.recordatorios
-                SET
-                    fecha_ultimo_pago = CURRENT_DATE
-                WHERE id = :id
-                """,
-                {
-                    "id": int(row["id"])
-                }
-            )
+        )
 
         ejecutar_query(
             """
@@ -324,7 +298,7 @@ def ejecutar_accion(resultado):
             }
         )
 
-        if frecuencia == "UNICO":
+        if str(row["frecuencia"]).upper() == "UNICO":
 
             return (
                 f"✅ Marqué como pagado "
@@ -335,7 +309,7 @@ def ejecutar_accion(resultado):
             f"✅ Registré el pago de "
             f"{row['descripcion']}.\n\n"
             f"Seguirá activo por ser "
-            f"{frecuencia}."
+            f"{row['frecuencia']}."
         )
 
     # =====================================

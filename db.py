@@ -25,11 +25,12 @@ def ejecutar_query(query, params=None):
         )
 
 
-def obtener_dataframe(query):
+def obtener_dataframe(query, params=None):
 
     with engine.connect() as conn:
 
         return pd.read_sql(
-            query,
-            conn
+            text(query),
+            conn,
+            params=params or {}
         )

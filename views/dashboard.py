@@ -22,33 +22,36 @@ def pantalla_dashboard():
     uid = st.session_state["user_id"]
 
     ingresos_df = obtener_dataframe(
-        f"""
+        """
         SELECT
             COALESCE(SUM(monto),0) total
         FROM gastos.movimientos
         WHERE tipo='INGRESO'
-        AND usuario_id={uid}
-        """
+        AND usuario_id = :uid
+        """,
+        {"uid": uid}
     )
 
     gastos_df = obtener_dataframe(
-        f"""
+        """
         SELECT
             COALESCE(SUM(monto),0) total
         FROM gastos.movimientos
         WHERE tipo='GASTO'
-        AND usuario_id={uid}
-        """
+        AND usuario_id = :uid
+        """,
+        {"uid": uid}
     )
 
     presupuesto_df = obtener_dataframe(
-        f"""
+        """
         SELECT monto
         FROM gastos.presupuestos
-        WHERE usuario_id={uid}
+        WHERE usuario_id = :uid
         ORDER BY id DESC
         LIMIT 1
-        """
+        """,
+        {"uid": uid}
     )
 
     ingresos = float(
@@ -208,7 +211,7 @@ Reduce gastos para evitar terminar el periodo sin saldo.
     with col2:
 
         categorias = obtener_dataframe(
-            f"""
+            """
             SELECT
                 COALESCE(
                     categoria,
@@ -217,9 +220,10 @@ Reduce gastos para evitar terminar el periodo sin saldo.
                 SUM(monto) monto
             FROM gastos.movimientos
             WHERE tipo='GASTO'
-            AND usuario_id={uid}
+            AND usuario_id = :uid
             GROUP BY categoria
-            """
+            """,
+            {"uid": uid}
         )
 
         if not categorias.empty:
@@ -272,17 +276,18 @@ por día.
         )
 
     top_categoria = obtener_dataframe(
-        f"""
+        """
         SELECT
             categoria,
             SUM(monto) total
         FROM gastos.movimientos
         WHERE tipo='GASTO'
-        AND usuario_id={uid}
+        AND usuario_id = :uid
         GROUP BY categoria
         ORDER BY total DESC
         LIMIT 1
-        """
+        """,
+        {"uid": uid}
     )
 
     if not top_categoria.empty:
@@ -299,7 +304,7 @@ ${top_categoria.iloc[0]['total']:,.2f}
         )
 
     ultimos = obtener_dataframe(
-        f"""
+        """
         SELECT
             fecha,
             categoria,
@@ -307,10 +312,11 @@ ${top_categoria.iloc[0]['total']:,.2f}
             tipo,
             monto
         FROM gastos.movimientos
-        WHERE usuario_id={uid}
+        WHERE usuario_id = :uid
         ORDER BY fecha DESC
         LIMIT 10
-        """
+        """,
+        {"uid": uid}
     )
 
     st.markdown(

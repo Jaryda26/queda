@@ -94,7 +94,7 @@ Ejemplos:
     )
 
     df = obtener_dataframe(
-        f"""
+        """
         SELECT
             id,
             frase,
@@ -102,9 +102,10 @@ Ejemplos:
             categoria,
             fecha_creacion
         FROM gastos.diccionario_usuario
-        WHERE usuario_id = {uid}
+        WHERE usuario_id = :uid
         ORDER BY id DESC
-        """
+        """,
+        {"uid": uid}
     )
 
     if df.empty:

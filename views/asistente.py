@@ -140,7 +140,7 @@ def interpretar_movimiento(texto):
 def obtener_saldo():
 
     df = obtener_dataframe(
-        f"""
+        """
         SELECT
 
             COALESCE(
@@ -169,9 +169,9 @@ def obtener_saldo():
 
         FROM gastos.movimientos
 
-        WHERE usuario_id =
-        {st.session_state["user_id"]}
-        """
+        WHERE usuario_id = :uid
+        """,
+        {"uid": st.session_state["user_id"]}
     )
 
     return float(
@@ -280,7 +280,7 @@ ${saldo:,.2f}
                 texto
             )
 
-            if intencion["accion"] in [
+            if intencion and intencion["accion"] in [
                 "ABRIR_DASHBOARD",
                 "ABRIR_RECORDATORIOS",
                 "PAGAR_RECORDATORIO",
@@ -298,19 +298,9 @@ ${saldo:,.2f}
 
                 return
 
-                resultado = interpretar_movimiento(
-                    texto
-                )
-
-                resultado["accion"] = (
-                    intencion["accion"]
-                )
-
-            else:
-
-                resultado = interpretar_movimiento(
-                    texto
-                )
+            resultado = interpretar_movimiento(
+                texto
+            )
 
             resultado["texto_original"] = texto
 

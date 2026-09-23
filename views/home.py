@@ -8,6 +8,7 @@ from db import obtener_dataframe
 from db import ejecutar_query
 
 from services.tts_service import texto_a_voz
+from services.recordatorios_service import marcar_pagado
 
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -71,33 +72,36 @@ def registrar_pago(uid, descripcion, monto):
 def obtener_resumen(uid):
 
     ingresos = obtener_dataframe(
-        f"""
+        """
         SELECT
             COALESCE(SUM(monto),0) total
         FROM gastos.movimientos
         WHERE tipo='INGRESO'
-        AND usuario_id={uid}
-        """
+        AND usuario_id = :uid
+        """,
+        {"uid": uid}
     )
 
     gastos = obtener_dataframe(
-        f"""
+        """
         SELECT
             COALESCE(SUM(monto),0) total
         FROM gastos.movimientos
         WHERE tipo='GASTO'
-        AND usuario_id={uid}
-        """
+        AND usuario_id = :uid
+        """,
+        {"uid": uid}
     )
 
     presupuesto = obtener_dataframe(
-        f"""
+        """
         SELECT monto
         FROM gastos.presupuestos
-        WHERE usuario_id={uid}
+        WHERE usuario_id = :uid
         ORDER BY id DESC
         LIMIT 1
-        """
+        """,
+        {"uid": uid}
     )
 
     total_ingresos = float(
@@ -208,13 +212,14 @@ def pantalla_home():
     )
 
     df_recordatorios = obtener_dataframe(
-        f"""
+        """
         SELECT *
         FROM gastos.recordatorios
-        WHERE usuario_id = {uid}
+        WHERE usuario_id = :uid
         AND pagado = FALSE
         ORDER BY fecha_vencimiento
-        """
+        """,
+        {"uid": uid}
     )
 
     nombre = st.session_state["nombre_corto"].split()[0]
@@ -390,43 +395,11 @@ def pantalla_home():
                                 float(row["monto"])
                             )
 
-                            if (
-                                str(
-                                    row["frecuencia"]
-                                ).upper()
-                                == "UNICO"
-                            ):
-
-                                ejecutar_query(
-                                    """
-                                    UPDATE gastos.recordatorios
-                                    SET
-                                        pagado = TRUE,
-                                        fecha_ultimo_pago =
-                                        CURRENT_DATE
-                                    WHERE id = :id
-                                    """,
-                                    {
-                                        "id":
-                                            int(row["id"])
-                                    }
-                                )
-
-                            else:
-
-                                ejecutar_query(
-                                    """
-                                    UPDATE gastos.recordatorios
-                                    SET
-                                        fecha_ultimo_pago =
-                                        CURRENT_DATE
-                                    WHERE id = :id
-                                    """,
-                                    {
-                                        "id":
-                                            int(row["id"])
-                                    }
-                                )
+                            marcar_pagado(
+                                int(row["id"]),
+                                row["fecha_vencimiento"],
+                                row["frecuencia"]
+                            )
 
                             st.success(
                                 "✅ Pago registrado"

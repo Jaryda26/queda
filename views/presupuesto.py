@@ -14,13 +14,14 @@ def pantalla_presupuesto():
     st.title("🎯 Presupuesto")
 
     presupuesto_actual = obtener_dataframe(
-        f"""
+        """
         SELECT *
         FROM gastos.presupuestos
-        WHERE usuario_id = {uid}
+        WHERE usuario_id = :uid
         ORDER BY id DESC
         LIMIT 1
-        """
+        """,
+        {"uid": uid}
     )
 
     monto_default = 0.0
@@ -161,7 +162,7 @@ Modifica los valores y presiona
         st.rerun()
 
     historial = obtener_dataframe(
-        f"""
+        """
         SELECT
             id,
             tipo_periodo,
@@ -170,10 +171,11 @@ Modifica los valores y presiona
             fecha_fin,
             fecha_creacion
         FROM gastos.presupuestos
-        WHERE usuario_id = {uid}
+        WHERE usuario_id = :uid
         ORDER BY id DESC
         LIMIT 10
-        """
+        """,
+        {"uid": uid}
     )
 
     st.markdown("### Historial")

@@ -3,6 +3,7 @@ from datetime import date
 
 from db import ejecutar_query
 from db import obtener_dataframe
+from services.recordatorios_service import marcar_pagado
 
 
 def pantalla_recordatorios():
@@ -92,7 +93,7 @@ def pantalla_recordatorios():
     )
 
     df = obtener_dataframe(
-        f"""
+        """
         SELECT
             id,
             descripcion,
@@ -103,9 +104,10 @@ def pantalla_recordatorios():
             pagado,
             fecha_ultimo_pago
         FROM gastos.recordatorios
-        WHERE usuario_id = {uid}
+        WHERE usuario_id = :uid
         ORDER BY fecha_vencimiento
-        """
+        """,
+        {"uid": uid}
     )
 
     if df.empty:
@@ -222,37 +224,11 @@ def pantalla_recordatorios():
                         key=f"pay_{row['id']}"
                     ):
 
-                        if (
-                            str(row["frecuencia"]).upper()
-                            == "UNICO"
-                        ):
-
-                            ejecutar_query(
-                                """
-                                UPDATE gastos.recordatorios
-                                SET
-                                    pagado = TRUE,
-                                    fecha_ultimo_pago = CURRENT_DATE
-                                WHERE id = :id
-                                """,
-                                {
-                                    "id": int(row["id"])
-                                }
-                            )
-
-                        else:
-
-                            ejecutar_query(
-                                """
-                                UPDATE gastos.recordatorios
-                                SET
-                                    fecha_ultimo_pago = CURRENT_DATE
-                                WHERE id = :id
-                                """,
-                                {
-                                    "id": int(row["id"])
-                                }
-                            )
+                        marcar_pagado(
+                            int(row["id"]),
+                            row["fecha_vencimiento"],
+                            row["frecuencia"]
+                        )
 
                         st.success(
                             "✅ Pago registrado"

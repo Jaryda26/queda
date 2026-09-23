@@ -12,7 +12,7 @@ def pantalla_historial():
     st.title("📜 Historial")
 
     df = obtener_dataframe(
-        f"""
+        """
         SELECT
             id,
             fecha,
@@ -23,9 +23,10 @@ def pantalla_historial():
             origen_ingreso,
             texto_original
         FROM gastos.movimientos
-        WHERE usuario_id = {uid}
+        WHERE usuario_id = :uid
         ORDER BY fecha DESC
-        """
+        """,
+        {"uid": uid}
     )
 
     if df.empty:

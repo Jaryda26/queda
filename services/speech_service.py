@@ -28,12 +28,10 @@ def speech_to_text(audio_file):
 
     if result.reason == speechsdk.ResultReason.NoMatch:
 
-        return "NO_MATCH"
+        return None
 
     if result.reason == speechsdk.ResultReason.Canceled:
 
-        detalles = result.cancellation_details
+        return None
 
-        return f"ERROR: {detalles.reason}"
-
-    return "SIN_RESULTADO"
+    return None
