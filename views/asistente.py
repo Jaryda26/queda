@@ -1,22 +1,11 @@
 import json
 import streamlit as st
 
-from openai import OpenAI
-
 from db import obtener_dataframe
 
 from services.intent_engine import detectar_intencion
 from services.action_engine import ejecutar_accion
-
-
-AZURE_OPENAI_ENDPOINT = st.secrets["AZURE_OPENAI_ENDPOINT"]
-AZURE_OPENAI_KEY = st.secrets["AZURE_OPENAI_KEY"]
-AZURE_OPENAI_DEPLOYMENT = st.secrets["AZURE_OPENAI_DEPLOYMENT"]
-
-client = OpenAI(
-    base_url=AZURE_OPENAI_ENDPOINT,
-    api_key=AZURE_OPENAI_KEY
-)
+from services.ai_client import get_openai_client, get_deployment
 
 
 PROMPT = """
@@ -103,8 +92,11 @@ Devuelve únicamente JSON.
 
 def interpretar_movimiento(texto):
 
+    client = get_openai_client()
+    deployment = get_deployment()
+
     response = client.chat.completions.create(
-        model=AZURE_OPENAI_DEPLOYMENT,
+        model=deployment,
         messages=[
             {
                 "role": "system",

@@ -9,6 +9,7 @@ from db import ejecutar_query
 
 from services.tts_service import texto_a_voz
 from services.recordatorios_service import marcar_pagado
+from services.narrativa_service import generar_narrativa_ia
 
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -69,71 +70,6 @@ def registrar_pago(uid, descripcion, monto):
     )
 
 
-def obtener_resumen(uid):
-
-    ingresos = obtener_dataframe(
-        """
-        SELECT
-            COALESCE(SUM(monto),0) total
-        FROM gastos.movimientos
-        WHERE tipo='INGRESO'
-        AND usuario_id = :uid
-        """,
-        {"uid": uid}
-    )
-
-    gastos = obtener_dataframe(
-        """
-        SELECT
-            COALESCE(SUM(monto),0) total
-        FROM gastos.movimientos
-        WHERE tipo='GASTO'
-        AND usuario_id = :uid
-        """,
-        {"uid": uid}
-    )
-
-    presupuesto = obtener_dataframe(
-        """
-        SELECT monto
-        FROM gastos.presupuestos
-        WHERE usuario_id = :uid
-        ORDER BY id DESC
-        LIMIT 1
-        """,
-        {"uid": uid}
-    )
-
-    total_ingresos = float(
-        ingresos.iloc[0]["total"]
-    )
-
-    total_gastos = float(
-        gastos.iloc[0]["total"]
-    )
-
-    disponible = (
-        total_ingresos - total_gastos
-    )
-
-    porcentaje = 0
-
-    if not presupuesto.empty:
-
-        monto_presupuesto = float(
-            presupuesto.iloc[0]["monto"]
-        )
-
-        if monto_presupuesto > 0:
-
-            porcentaje = (
-                total_gastos /
-                monto_presupuesto
-            ) * 100
-
-    return disponible, porcentaje
-
-
 def frase_del_dia():
 
     frases = [
@@ -154,62 +90,11 @@ def frase_del_dia():
     return random.choice(frases)
 
 
-def generar_narrativa(
-   
-    nombre,
-    disponible,
-    porcentaje,
-    recordatorios
-):
-
-    if porcentaje < 50:
-
-        estado = (
-            "Vas muy bien. "
-            "Tu ritmo de gasto está controlado."
-        )
-
-    elif porcentaje < 80:
-
-        estado = (
-            "Atención. Ya utilizaste más de la mitad "
-            "de tu presupuesto."
-        )
-
-    else:
-
-        estado = (
-            "Cuidado. Existe riesgo de exceder "
-            "tu presupuesto."
-        )
-
-    return f"""
-Hola {nombre}.
-
-Tu disponible actual es de
-{disponible:,.0f} pesos.
-
-Has utilizado
-{porcentaje:.1f} por ciento
-de tu presupuesto.
-
-Tienes
-{recordatorios}
-recordatorios pendientes.
-
-{estado}
-"""
-
-
 def pantalla_home():
 
     uid = st.session_state["user_id"]
 
     hoy = date.today()
-
-    disponible, porcentaje = (
-        obtener_resumen(uid)
-    )
 
     df_recordatorios = obtener_dataframe(
         """
@@ -240,12 +125,7 @@ def pantalla_home():
         frase_del_dia()
     )
 
-    narrativa = generar_narrativa(
-        st.session_state["nombre_corto"],
-        disponible,
-        porcentaje,
-        len(df_recordatorios)
-    )
+    narrativa = generar_narrativa_ia(uid)
 
     st.success(narrativa)
 

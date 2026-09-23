@@ -1,0 +1,316 @@
+import json
+from datetime import date
+
+from db import obtener_dataframe
+from services.ai_client import get_openai_client, get_deployment
+
+
+PROMPT_NARRATIVA = """
+Eres el asistente financiero de la app "Queda". Vas a redactar un
+mensaje breve de bienvenida (máximo 4 líneas, sin saludo inicial:
+el saludo ya lo pone la app aparte) a partir de un JSON con datos
+financieros reales del usuario.
+
+Reglas estrictas:
+- Usa ÚNICAMENTE las cifras que vienen en el JSON. No inventes,
+  no cambies, no agregues ninguna cifra que no esté ahí.
+- Si "proyeccion_fin_periodo" o "proyeccion_proximo_recordatorio"
+  son positivos, es una proyección de AHORRO/margen. Si son
+  negativos, es una proyección de DÉFICIT (les va a faltar dinero).
+- Tono cálido y motivador cuando las proyecciones son buenas; tono
+  de alerta amable (nunca alarmista, nunca culpabilizador) cuando
+  son malas.
+- Si "proximo_recordatorio" no es null, menciónalo por su
+  descripción y en cuántos días vence.
+- Si no hay presupuesto activo ("proyeccion_fin_periodo" es null),
+  invita amablemente a configurar uno, sin inventar cifras.
+- Español de México, cercano, natural. Sin tecnicismos financieros,
+  sin markdown, sin listas — solo el mensaje en prosa corrida.
+"""
+
+
+def _sumar(query, params):
+
+    df = obtener_dataframe(query, params)
+
+    if df.empty:
+        return 0.0
+
+    valor = df.iloc[0, 0]
+
+    return float(valor) if valor is not None else 0.0
+
+
+def calcular_datos_proyeccion(uid):
+    """
+    Calcula, en Python puro (sin IA), los datos financieros que
+    alimentan el mensaje de bienvenida: estos números son la fuente
+    de verdad — la IA solo los redacta, nunca los calcula.
+    """
+
+    hoy = date.today()
+
+    datos = {
+        "disponible_actual": 0.0,
+        "porcentaje_usado_presupuesto": None,
+        "dias_restantes_periodo": None,
+        "proyeccion_fin_periodo": None,
+        "recordatorios_pendientes": 0,
+        "proximo_recordatorio": None,
+        "proyeccion_proximo_recordatorio": None
+    }
+
+    ingresos = _sumar(
+        """
+        SELECT COALESCE(SUM(monto),0)
+        FROM gastos.movimientos
+        WHERE tipo='INGRESO' AND usuario_id = :uid
+        """,
+        {"uid": uid}
+    )
+
+    gastos_totales = _sumar(
+        """
+        SELECT COALESCE(SUM(monto),0)
+        FROM gastos.movimientos
+        WHERE tipo='GASTO' AND usuario_id = :uid
+        """,
+        {"uid": uid}
+    )
+
+    datos["disponible_actual"] = round(
+        ingresos - gastos_totales, 2
+    )
+
+    presupuesto_df = obtener_dataframe(
+        """
+        SELECT monto, fecha_inicio, fecha_fin
+        FROM gastos.presupuestos
+        WHERE usuario_id = :uid
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        {"uid": uid}
+    )
+
+    if not presupuesto_df.empty:
+
+        monto_presupuesto = float(
+            presupuesto_df.iloc[0]["monto"]
+        )
+
+        fecha_inicio = presupuesto_df.iloc[0]["fecha_inicio"]
+        fecha_fin = presupuesto_df.iloc[0]["fecha_fin"]
+
+        gasto_periodo = _sumar(
+            """
+            SELECT COALESCE(SUM(monto),0)
+            FROM gastos.movimientos
+            WHERE tipo='GASTO' AND usuario_id = :uid
+            AND fecha::date BETWEEN :inicio AND :fin
+            """,
+            {
+                "uid": uid,
+                "inicio": fecha_inicio,
+                "fin": fecha_fin
+            }
+        )
+
+        if monto_presupuesto > 0:
+
+            datos["porcentaje_usado_presupuesto"] = round(
+                gasto_periodo / monto_presupuesto * 100, 1
+            )
+
+        dias_transcurridos = max(
+            (hoy - fecha_inicio).days, 1
+        )
+
+        dias_totales = max(
+            (fecha_fin - fecha_inicio).days, 1
+        )
+
+        dias_restantes = max(
+            (fecha_fin - hoy).days, 0
+        )
+
+        ritmo_diario = gasto_periodo / dias_transcurridos
+
+        datos["dias_restantes_periodo"] = dias_restantes
+
+        datos["proyeccion_fin_periodo"] = round(
+            monto_presupuesto - (ritmo_diario * dias_totales),
+            2
+        )
+
+        recordatorios_df = obtener_dataframe(
+            """
+            SELECT descripcion, monto, fecha_vencimiento
+            FROM gastos.recordatorios
+            WHERE usuario_id = :uid AND pagado = FALSE
+            ORDER BY fecha_vencimiento
+            """,
+            {"uid": uid}
+        )
+
+        datos["recordatorios_pendientes"] = len(recordatorios_df)
+
+        if not recordatorios_df.empty:
+
+            row = recordatorios_df.iloc[0]
+            fecha_recordatorio = row["fecha_vencimiento"]
+
+            dias_para_recordatorio = (
+                fecha_recordatorio - hoy
+            ).days
+
+            datos["proximo_recordatorio"] = {
+                "descripcion": str(row["descripcion"]),
+                "monto": float(row["monto"]),
+                "dias_restantes": dias_para_recordatorio
+            }
+
+            if (
+                fecha_recordatorio <= fecha_fin
+                and dias_para_recordatorio >= 0
+            ):
+
+                dias_desde_inicio = (
+                    fecha_recordatorio - fecha_inicio
+                ).days
+
+                gasto_proyectado = (
+                    ritmo_diario * dias_desde_inicio
+                )
+
+                datos["proyeccion_proximo_recordatorio"] = round(
+                    monto_presupuesto
+                    - gasto_proyectado
+                    - float(row["monto"]),
+                    2
+                )
+
+    return datos
+
+
+def _narrativa_plantilla(datos):
+    """
+    Fallback determinista (sin IA): usa los mismos datos calculados
+    arriba, redactados con plantillas. Se usa si la IA no está
+    disponible o falla, para que el saludo nunca se caiga.
+    """
+
+    partes = []
+
+    proyeccion_fin = datos["proyeccion_fin_periodo"]
+
+    if proyeccion_fin is None:
+
+        partes.append(
+            "Todavía no tienes un presupuesto activo — "
+            "configura uno para ver proyecciones de tu ritmo de gasto."
+        )
+
+    elif proyeccion_fin >= 0:
+
+        partes.append(
+            f"Vas bien: si mantienes tu ritmo actual, "
+            f"cierras el periodo con ${proyeccion_fin:,.0f} de margen."
+        )
+
+    else:
+
+        partes.append(
+            f"Cuidado: a tu ritmo actual cerrarías el periodo "
+            f"${abs(proyeccion_fin):,.0f} arriba de tu presupuesto."
+        )
+
+    recordatorio = datos["proximo_recordatorio"]
+
+    if recordatorio:
+
+        dias = recordatorio["dias_restantes"]
+
+        if dias < 0:
+            cuando = f"hace {abs(dias)} día(s)"
+        elif dias == 0:
+            cuando = "hoy"
+        elif dias == 1:
+            cuando = "mañana"
+        else:
+            cuando = f"en {dias} días"
+
+        partes.append(
+            f"Tu próximo pendiente es {recordatorio['descripcion']} "
+            f"(${recordatorio['monto']:,.0f}), vence {cuando}."
+        )
+
+        proyeccion_recordatorio = (
+            datos["proyeccion_proximo_recordatorio"]
+        )
+
+        if proyeccion_recordatorio is not None:
+
+            if proyeccion_recordatorio >= 0:
+
+                partes.append(
+                    f"Si sigues así, para entonces te sobrarían "
+                    f"${proyeccion_recordatorio:,.0f}."
+                )
+
+            else:
+
+                partes.append(
+                    f"Si sigues así, te faltarían "
+                    f"${abs(proyeccion_recordatorio):,.0f} para cubrirlo."
+                )
+
+    return " ".join(partes)
+
+
+def generar_narrativa_ia(uid):
+    """
+    Genera el mensaje del día: los datos se calculan siempre en
+    Python (fuente de verdad, cero riesgo de cifras inventadas) y
+    solo se le pide a la IA que los redacte con buen tono. Si la
+    llamada a la IA falla por cualquier motivo (sin credenciales,
+    sin internet, cuota agotada, etc.), regresa la versión con
+    plantillas usando los mismos datos — el saludo nunca se cae.
+    """
+
+    datos = calcular_datos_proyeccion(uid)
+
+    try:
+
+        client = get_openai_client()
+        deployment = get_deployment()
+
+        response = client.chat.completions.create(
+            model=deployment,
+            messages=[
+                {
+                    "role": "system",
+                    "content": PROMPT_NARRATIVA
+                },
+                {
+                    "role": "user",
+                    "content": json.dumps(
+                        datos,
+                        ensure_ascii=False,
+                        default=str
+                    )
+                }
+            ],
+            temperature=0.4,
+            max_tokens=220
+        )
+
+        texto = response.choices[0].message.content.strip()
+
+        if texto:
+            return texto
+
+    except Exception:
+        pass
+
+    return _narrativa_plantilla(datos)
