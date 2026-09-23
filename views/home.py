@@ -142,7 +142,9 @@ def pantalla_home():
             )
 
             st.audio(
-                archivo_audio
+                archivo_audio,
+                format="audio/wav",
+                autoplay=True
             )
 
             st.session_state[
