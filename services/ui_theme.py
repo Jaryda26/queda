@@ -75,10 +75,20 @@ def aplicar_tema():
         /* ============ MÉTRICAS ============ */
 
         div[data-testid="stMetric"] {
-            background-color: #F5F7F6;
+            background-color: #E6ECEB;
+            border: 1px solid #D3DEDC;
             border-radius: 14px;
             padding: 16px 20px;
-            box-shadow: 0 1px 3px rgba(15, 61, 55, 0.06);
+            min-height: 110px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            box-shadow: 0 1px 3px rgba(15, 61, 55, 0.08);
+        }
+
+        [data-testid="stMetricLabel"] {
+            color: #3E5750 !important;
+            font-weight: 600;
         }
 
         [data-testid="stMetricValue"] {
