@@ -86,12 +86,13 @@ def limite_miembros_cuenta(cuenta_id):
     return int(df.iloc[0]["limite_miembros"])
 
 
-def unirse_a_cuenta(usuario_id, codigo):
+def validar_codigo_invitacion(codigo):
     """
-    Mueve a este usuario a la cuenta dueña del código. Su historial
-    financiero anterior se queda en su cuenta vieja (no se mezcla
-    automáticamente) — deja de ser visible para él, pero no se
-    borra.
+    Revisa que un código de invitación exista y que la cuenta
+    todavía tenga espacio según el límite de miembros de su plan.
+
+    Regresa (cuenta_id, None) si es válido, o (None, mensaje) si no
+    — la comparten unirse_a_cuenta() y el registro con código.
     """
 
     codigo_normalizado = codigo.strip().upper()
@@ -106,19 +107,34 @@ def unirse_a_cuenta(usuario_id, codigo):
     )
 
     if cuenta_df.empty:
-        return False, "Código de invitación inválido."
+        return None, "Código de invitación inválido."
 
     cuenta_id = int(cuenta_df.iloc[0]["id"])
 
     miembros_df = obtener_miembros(cuenta_id)
-
     limite = limite_miembros_cuenta(cuenta_id)
 
     if len(miembros_df) >= limite:
-        return False, (
+        return None, (
             "Esa cuenta ya alcanzó su límite de miembros "
             "para su plan actual."
         )
+
+    return cuenta_id, None
+
+
+def unirse_a_cuenta(usuario_id, codigo):
+    """
+    Mueve a un usuario YA REGISTRADO a la cuenta dueña del código.
+    Su historial financiero anterior se queda en su cuenta vieja
+    (no se mezcla automáticamente) — deja de ser visible para él,
+    pero no se borra.
+    """
+
+    cuenta_id, error = validar_codigo_invitacion(codigo)
+
+    if error:
+        return False, error
 
     ejecutar_query(
         """

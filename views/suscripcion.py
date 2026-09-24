@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 
 from services.billing_service import (
     obtener_planes,
@@ -136,6 +137,20 @@ def pantalla_suscripcion():
                     f"Hasta {plan['limite_miembros']} "
                     f"miembro(s) · {plan['tipo_cuenta'].title()}"
                 )
+
+                if plan["incluye_ia"]:
+                    st.markdown("✅ Asistente IA (texto y voz)")
+                else:
+                    st.markdown("🔒 Sin Asistente IA")
+
+                if pd.isna(plan["limite_recordatorios"]):
+                    st.markdown("🔔 Recordatorios ilimitados")
+                else:
+                    st.markdown(
+                        f"🔔 Hasta "
+                        f"{int(plan['limite_recordatorios'])} "
+                        f"recordatorios activos"
+                    )
 
                 es_plan_actual = (
                     tiene_activa

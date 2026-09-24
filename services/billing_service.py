@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 
+import pandas as pd
 import streamlit as st
 import stripe
 
@@ -44,7 +45,9 @@ def obtener_suscripcion(cuenta_id):
             p.nombre AS plan_nombre,
             p.precio_centavos,
             p.tipo_cuenta,
-            p.limite_miembros
+            p.limite_miembros,
+            p.limite_recordatorios,
+            p.incluye_ia
         FROM gastos.suscripciones s
         LEFT JOIN gastos.planes p ON p.id = s.plan_id
         WHERE s.cuenta_id = :cuenta_id
@@ -53,6 +56,38 @@ def obtener_suscripcion(cuenta_id):
         """,
         {"cuenta_id": cuenta_id}
     )
+
+
+def obtener_plan_actual(cuenta_id):
+    """
+    Datos de plan+suscripción SOLO si está activa/trialing — se usa
+    para aplicar límites por plan (recordatorios, IA, miembros).
+    Si no hay suscripción activa, regresa None.
+
+    Regresa un dict (no una Series de pandas) con
+    limite_recordatorios ya normalizado a int o None: una columna
+    entera NULL en Postgres llega aquí como NaN, no como None, y
+    "NaN is not None" da True — sin este normalizado, cualquier
+    "if limite is not None" de más abajo se rompe con planes que
+    no tienen tope (Individual/Familiar).
+    """
+
+    df = obtener_suscripcion(cuenta_id)
+
+    if df.empty or df.iloc[0]["status"] not in ("active", "trialing"):
+        return None
+
+    plan = df.iloc[0].to_dict()
+
+    limite = plan.get("limite_recordatorios")
+
+    plan["limite_recordatorios"] = (
+        None if pd.isna(limite) else int(limite)
+    )
+
+    plan["incluye_ia"] = bool(plan.get("incluye_ia", True))
+
+    return plan
 
 
 def tiene_suscripcion_activa(cuenta_id):

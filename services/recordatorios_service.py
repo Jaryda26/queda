@@ -1,7 +1,53 @@
 import calendar
 from datetime import date, timedelta
 
-from db import ejecutar_query
+from db import ejecutar_query, obtener_dataframe
+from services.billing_service import obtener_plan_actual
+
+
+def contar_recordatorios_activos(cuenta_id):
+
+    df = obtener_dataframe(
+        """
+        SELECT COUNT(*) AS total
+        FROM gastos.recordatorios
+        WHERE cuenta_id = :cuenta_id AND pagado = FALSE
+        """,
+        {"cuenta_id": cuenta_id}
+    )
+
+    return int(df.iloc[0]["total"])
+
+
+def puede_agregar_recordatorio(cuenta_id):
+    """
+    Revisa el tope de recordatorios activos del plan de la cuenta
+    (lo comparten el formulario manual y la creación por voz).
+    Regresa (True, None) si se puede agregar uno más, o
+    (False, mensaje) si ya se llegó al límite.
+    """
+
+    plan = obtener_plan_actual(cuenta_id)
+
+    limite = (
+        plan.get("limite_recordatorios")
+        if plan is not None else None
+    )
+
+    if limite is None:
+        return True, None
+
+    activos = contar_recordatorios_activos(cuenta_id)
+
+    if activos >= limite:
+
+        return False, (
+            f"Llegaste al límite de {limite} recordatorios "
+            f"activos de tu plan. Paga o borra alguno, o sube "
+            f"de plan en 💳 Suscripción."
+        )
+
+    return True, None
 
 
 def calcular_siguiente_fecha(fecha_actual, frecuencia):

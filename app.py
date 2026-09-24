@@ -18,6 +18,7 @@ from views.suscripcion import pantalla_suscripcion
 from views.cuenta import pantalla_cuenta
 
 from services.billing_service import tiene_suscripcion_activa
+from services.ui_theme import aplicar_tema
 
 
 st.set_page_config(
@@ -25,6 +26,8 @@ st.set_page_config(
     page_icon="💰",
     layout="wide"
 )
+
+aplicar_tema()
 
 # =====================================================
 # ESTADO GLOBAL

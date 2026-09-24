@@ -1,4 +1,5 @@
 import json
+from datetime import date
 import streamlit as st
 
 from db import obtener_dataframe
@@ -6,9 +7,10 @@ from db import obtener_dataframe
 from services.intent_engine import detectar_intencion
 from services.action_engine import ejecutar_accion
 from services.ai_client import get_openai_client, get_deployment
+from services.billing_service import obtener_plan_actual
 
 
-PROMPT = """
+PROMPT_BASE = """
 Eres el motor financiero de Queda.
 
 Devuelve únicamente JSON válido.
@@ -17,6 +19,7 @@ Acciones válidas:
 
 REGISTRAR_GASTO
 REGISTRAR_INGRESO
+CREAR_RECORDATORIO
 PAGAR_RECORDATORIO
 POSPONER_RECORDATORIO
 ABRIR_DASHBOARD
@@ -86,8 +89,60 @@ Qué tengo pendiente
   "accion":"ABRIR_RECORDATORIOS"
 }
 
+Recuérdame pagar la tarjeta Sears el próximo viernes por 1300 pesos
+
+{
+  "accion":"CREAR_RECORDATORIO",
+  "descripcion":"Tarjeta Sears",
+  "monto":1300,
+  "fecha_vencimiento":"<resuelve 'próximo viernes' a una fecha YYYY-MM-DD usando la fecha de hoy que te doy abajo>",
+  "frecuencia":"UNICO",
+  "dias_anticipacion":3
+}
+
+Ponme un recordatorio mensual de la renta, 3500 pesos, cada día 5
+
+{
+  "accion":"CREAR_RECORDATORIO",
+  "descripcion":"Renta",
+  "monto":3500,
+  "fecha_vencimiento":"<el día 5 más próximo desde hoy, YYYY-MM-DD>",
+  "frecuencia":"MENSUAL",
+  "dias_anticipacion":3
+}
+
+Reglas para CREAR_RECORDATORIO:
+- "fecha_vencimiento" SIEMPRE en formato YYYY-MM-DD, resuelta a
+  partir de la fecha de hoy que se te da al final de este mensaje
+  — nunca la dejes como texto libre ("el viernes"), conviértela.
+- "frecuencia" debe ser una de: UNICO, SEMANAL, QUINCENAL, MENSUAL,
+  ANUAL. Si no se especifica, usa UNICO.
+- "dias_anticipacion" es un entero (días antes para avisar); si no
+  se especifica, usa 3.
+- Si no puedes identificar con confianza la fecha o el monto, deja
+  ese campo como null en vez de inventar un valor.
+
 Devuelve únicamente JSON.
 """
+
+
+def _prompt_con_fecha():
+
+    hoy = date.today()
+
+    dias_semana = [
+        "lunes", "martes", "miércoles", "jueves",
+        "viernes", "sábado", "domingo"
+    ]
+
+    contexto_fecha = (
+        f"\nHoy es {dias_semana[hoy.weekday()]}, "
+        f"{hoy.isoformat()}. Usa esta fecha como referencia para "
+        f"resolver cualquier fecha relativa (\"el viernes\", "
+        f"\"en 3 días\", \"el próximo mes\", etc.).\n"
+    )
+
+    return PROMPT_BASE + contexto_fecha
 
 
 def interpretar_movimiento(texto):
@@ -100,7 +155,7 @@ def interpretar_movimiento(texto):
         messages=[
             {
                 "role": "system",
-                "content": PROMPT
+                "content": _prompt_con_fecha()
             },
             {
                 "role": "user",
@@ -175,6 +230,20 @@ def pantalla_asistente():
 
     st.title("🤖 Asistente IA")
 
+    plan = obtener_plan_actual(
+        st.session_state["cuenta_id"]
+    )
+
+    if plan is None or not plan.get("incluye_ia", True):
+
+        st.warning(
+            "🔒 El Asistente IA está disponible desde el plan "
+            "Individual. Sube de plan en 💳 Suscripción para "
+            "desbloquearlo."
+        )
+
+        return
+
     st.markdown(
         """
 ### Ejemplos
@@ -187,6 +256,8 @@ def pantalla_asistente():
 - Ya pagué Sears
 - Después Sears
 - Muéstrame estadísticas
+- Recuérdame pagar la tarjeta Sears el próximo viernes por 1300
+- Ponme un recordatorio mensual de la renta, 3500, cada día 5
 """
     )
 

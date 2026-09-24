@@ -126,6 +126,8 @@ ALTER TABLE gastos.planes ADD COLUMN IF NOT EXISTS precio_centavos INTEGER;
 ALTER TABLE gastos.planes ADD COLUMN IF NOT EXISTS limite_miembros INTEGER NOT NULL DEFAULT 1;
 ALTER TABLE gastos.planes ADD COLUMN IF NOT EXISTS stripe_price_id VARCHAR(100);
 ALTER TABLE gastos.planes ADD COLUMN IF NOT EXISTS activo BOOLEAN DEFAULT TRUE;
+ALTER TABLE gastos.planes ADD COLUMN IF NOT EXISTS limite_recordatorios INTEGER; -- NULL = sin límite
+ALTER TABLE gastos.planes ADD COLUMN IF NOT EXISTS incluye_ia BOOLEAN DEFAULT TRUE; -- Asistente IA (texto/voz) + narrativa con IA en Inicio
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_planes_slug ON gastos.planes(slug);
 
@@ -135,6 +137,20 @@ VALUES
  ('individual', 'Individual', 'INDIVIDUAL', 4900, 1, 'price_PENDIENTE_INDIVIDUAL'),
  ('familiar', 'Familiar', 'FAMILIAR', 9900, 5, 'price_PENDIENTE_FAMILIAR')
 ON CONFLICT (slug) DO NOTHING;
+
+-- Diferencias reales entre planes (con UPDATE, no solo en el INSERT
+-- de arriba, para que también apliquen si esas filas ya existían
+-- de una corrida anterior del script):
+-- - Básico: registro manual completo (movimientos, presupuesto,
+--   historial, dashboard, recordatorios) pero SIN Asistente IA
+--   (ni texto ni voz) y con tope de 5 recordatorios activos.
+-- - Individual: todo lo anterior + Asistente IA + narrativa
+--   generada con IA en Inicio, sin tope de recordatorios.
+-- - Familiar: todo lo de Individual + hasta 5 miembros compartiendo
+--   la misma cuenta.
+UPDATE gastos.planes SET limite_recordatorios = 5, incluye_ia = FALSE WHERE slug = 'basico';
+UPDATE gastos.planes SET limite_recordatorios = NULL, incluye_ia = TRUE WHERE slug = 'individual';
+UPDATE gastos.planes SET limite_recordatorios = NULL, incluye_ia = TRUE WHERE slug = 'familiar';
 
 -- Una fila por cuenta con su estado de pago. status sigue el
 -- vocabulario de Stripe: incomplete | trialing | active | past_due

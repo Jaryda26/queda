@@ -1,8 +1,12 @@
 import streamlit as st
+from datetime import datetime
 
 from db import ejecutar_query
 from db import obtener_dataframe
-from services.recordatorios_service import marcar_pagado
+from services.recordatorios_service import (
+    marcar_pagado,
+    puede_agregar_recordatorio
+)
 
 
 def ejecutar_accion(resultado):
@@ -473,6 +477,110 @@ def ejecutar_accion(resultado):
         return (
             f"✅ Ingreso registrado "
             f"${monto:,.2f}"
+        )
+
+    # =====================================
+    # CREAR RECORDATORIO (por voz o texto)
+    # =====================================
+
+    if accion == "CREAR_RECORDATORIO":
+
+        cuenta_id = st.session_state["cuenta_id"]
+
+        descripcion = str(
+            resultado.get("descripcion", "")
+        ).strip()
+
+        monto = float(
+            resultado.get("monto", 0) or 0
+        )
+
+        fecha_vencimiento = resultado.get(
+            "fecha_vencimiento"
+        )
+
+        frecuencia = str(
+            resultado.get("frecuencia", "UNICO")
+        ).upper()
+
+        if frecuencia not in (
+            "UNICO", "SEMANAL", "QUINCENAL", "MENSUAL", "ANUAL"
+        ):
+            frecuencia = "UNICO"
+
+        dias_anticipacion = int(
+            resultado.get("dias_anticipacion", 3) or 3
+        )
+
+        if not descripcion or not fecha_vencimiento:
+
+            return (
+                "⚠ No pude identificar bien la descripción o la "
+                "fecha del recordatorio. Intenta de nuevo siendo "
+                "más específico, por ejemplo: 'recuérdame pagar "
+                "la tarjeta Sears el 30 de este mes por 1300 "
+                "pesos'."
+            )
+
+        try:
+
+            fecha_vencimiento = datetime.strptime(
+                str(fecha_vencimiento),
+                "%Y-%m-%d"
+            ).date()
+
+        except ValueError:
+
+            return (
+                "⚠ No logré entender bien la fecha. Intenta "
+                "decirla de forma más clara, por ejemplo "
+                "'el 30 de este mes' o 'el próximo viernes'."
+            )
+
+        puede, mensaje_limite = puede_agregar_recordatorio(
+            cuenta_id
+        )
+
+        if not puede:
+            return f"⚠ {mensaje_limite}"
+
+        ejecutar_query(
+            """
+            INSERT INTO gastos.recordatorios
+            (
+                usuario_id,
+                cuenta_id,
+                descripcion,
+                monto,
+                fecha_vencimiento,
+                dias_anticipacion,
+                frecuencia
+            )
+            VALUES
+            (
+                :uid,
+                :cuenta_id,
+                :descripcion,
+                :monto,
+                :fecha_vencimiento,
+                :dias,
+                :frecuencia
+            )
+            """,
+            {
+                "uid": st.session_state["user_id"],
+                "cuenta_id": cuenta_id,
+                "descripcion": descripcion,
+                "monto": monto,
+                "fecha_vencimiento": fecha_vencimiento,
+                "dias": dias_anticipacion,
+                "frecuencia": frecuencia
+            }
+        )
+
+        return (
+            f"🔔 Recordatorio creado: {descripcion} "
+            f"(${monto:,.2f}), vence {fecha_vencimiento}."
         )
 
     return "⚠ Acción no reconocida"

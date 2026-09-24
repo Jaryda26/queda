@@ -26,6 +26,9 @@ Reglas estrictas:
   invita amablemente a configurar uno, sin inventar cifras.
 - Español de México, cercano, natural. Sin tecnicismos financieros,
   sin markdown, sin listas — solo el mensaje en prosa corrida.
+- PROHIBIDO usar backticks (`), asteriscos (*) o cualquier símbolo
+  de formato — ni siquiera para resaltar montos. Escribe los montos
+  como texto plano, por ejemplo: $7,101 o $4,333.40.
 """
 
 
@@ -165,7 +168,9 @@ def calcular_datos_proyeccion(cuenta_id):
             ).days
 
             datos["proximo_recordatorio"] = {
-                "descripcion": str(row["descripcion"]),
+                "descripcion": str(
+                    row["descripcion"]
+                ).strip().capitalize(),
                 "monto": float(row["monto"]),
                 "dias_restantes": dias_para_recordatorio
             }
@@ -268,49 +273,74 @@ def _narrativa_plantilla(datos):
     return " ".join(partes)
 
 
-def generar_narrativa_ia(cuenta_id):
+def _limpiar_formato(texto):
+    """
+    Red de seguridad: aunque el prompt prohíbe backticks/asteriscos,
+    a veces la IA los mete de todos modos (se ha visto en producción)
+    y se ven feos al renderizarse como código en st.success(). Los
+    quitamos a la fuerza en vez de confiar solo en la instrucción.
+    """
+
+    return (
+        texto
+        .replace("`", "")
+        .replace("**", "")
+        .replace("*", "")
+        .strip()
+    )
+
+
+def generar_narrativa_ia(cuenta_id, usar_ia=True, datos=None):
     """
     Genera el mensaje del día: los datos se calculan siempre en
-    Python (fuente de verdad, cero riesgo de cifras inventadas) y
-    solo se le pide a la IA que los redacte con buen tono. Si la
-    llamada a la IA falla por cualquier motivo (sin credenciales,
-    sin internet, cuota agotada, etc.), regresa la versión con
-    plantillas usando los mismos datos — el saludo nunca se cae.
+    Python (fuente de verdad, cero riesgo de cifras inventadas).
+    Si ya los calculaste antes en el caller (p. ej. para mostrar
+    métricas en pantalla), pásalos en "datos" para no repetir las
+    mismas consultas a la base.
+
+    Si usar_ia=True, se le pide a la IA que los redacte con buen
+    tono; si falla por cualquier motivo (sin credenciales, sin
+    internet, cuota agotada, etc.) o si usar_ia=False (plan Básico,
+    que no incluye IA), regresa la versión con plantillas usando
+    los mismos datos — el saludo nunca se cae.
     """
 
-    datos = calcular_datos_proyeccion(cuenta_id)
+    if datos is None:
+        datos = calcular_datos_proyeccion(cuenta_id)
 
-    try:
+    if usar_ia:
 
-        client = get_openai_client()
-        deployment = get_deployment()
+        try:
 
-        response = client.chat.completions.create(
-            model=deployment,
-            messages=[
-                {
-                    "role": "system",
-                    "content": PROMPT_NARRATIVA
-                },
-                {
-                    "role": "user",
-                    "content": json.dumps(
-                        datos,
-                        ensure_ascii=False,
-                        default=str
-                    )
-                }
-            ],
-            temperature=0.4,
-            max_tokens=220
-        )
+            client = get_openai_client()
+            deployment = get_deployment()
 
-        texto = response.choices[0].message.content.strip()
+            response = client.chat.completions.create(
+                model=deployment,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": PROMPT_NARRATIVA
+                    },
+                    {
+                        "role": "user",
+                        "content": json.dumps(
+                            datos,
+                            ensure_ascii=False,
+                            default=str
+                        )
+                    }
+                ],
+                temperature=0.4,
+                max_tokens=220
+            )
 
-        if texto:
-            return texto
+            texto = response.choices[0].message.content.strip()
 
-    except Exception:
-        pass
+            if texto:
+                return _limpiar_formato(texto)
+
+        except Exception:
+            pass
 
     return _narrativa_plantilla(datos)

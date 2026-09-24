@@ -2,9 +2,10 @@ import bcrypt
 from sqlalchemy import text
 
 from db import engine, obtener_dataframe
+from services.cuenta_service import validar_codigo_invitacion
 
 
-def registrar_usuario(nombre, email, password):
+def registrar_usuario(nombre, email, password, codigo_invitacion=None):
 
     email_normalizado = email.strip().lower()
 
@@ -19,6 +20,21 @@ def registrar_usuario(nombre, email, password):
     if not nombre.strip() or not email_normalizado or len(password) < 8:
         return False, "Revisa nombre, correo y una contraseña de al menos 8 caracteres."
 
+    # Si trae un código de invitación válido, se une DIRECTO a esa
+    # cuenta (como MIEMBRO) en vez de crear una cuenta individual
+    # nueva y tener que pagar por su cuenta para luego unirse.
+
+    cuenta_existente_id = None
+
+    if codigo_invitacion and codigo_invitacion.strip():
+
+        cuenta_existente_id, error = validar_codigo_invitacion(
+            codigo_invitacion
+        )
+
+        if error:
+            return False, error
+
     hash_password = bcrypt.hashpw(
         password.encode(),
         bcrypt.gensalt()
@@ -26,24 +42,30 @@ def registrar_usuario(nombre, email, password):
 
     nombre_limpio = nombre.strip()
 
-    # Un usuario nuevo siempre arranca con su propia cuenta
-    # INDIVIDUAL (puede unirse a una cuenta FAMILIAR después con
-    # un código de invitación — ver services/cuenta_service.py).
-    # Las 3 inserciones van en una sola transacción: si algo falla
-    # a la mitad, no queda una cuenta huérfana sin usuario.
+    # Las inserciones van en una sola transacción: si algo falla a
+    # la mitad, no queda una cuenta huérfana sin usuario.
 
     with engine.begin() as conn:
 
-        cuenta_id = conn.execute(
-            text(
-                """
-                INSERT INTO gastos.cuentas (nombre, tipo)
-                VALUES (:nombre, 'INDIVIDUAL')
-                RETURNING id
-                """
-            ),
-            {"nombre": f"Cuenta de {nombre_limpio}"}
-        ).fetchone()[0]
+        if cuenta_existente_id is not None:
+
+            cuenta_id = cuenta_existente_id
+            rol_cuenta = "MIEMBRO"
+
+        else:
+
+            cuenta_id = conn.execute(
+                text(
+                    """
+                    INSERT INTO gastos.cuentas (nombre, tipo)
+                    VALUES (:nombre, 'INDIVIDUAL')
+                    RETURNING id
+                    """
+                ),
+                {"nombre": f"Cuenta de {nombre_limpio}"}
+            ).fetchone()[0]
+
+            rol_cuenta = "ADMIN"
 
         conn.execute(
             text(
@@ -51,25 +73,35 @@ def registrar_usuario(nombre, email, password):
                 INSERT INTO gastos.usuarios
                 (nombre, email, password_hash, cuenta_id, rol_cuenta)
                 VALUES
-                (:nombre, :email, :hash, :cuenta_id, 'ADMIN')
+                (:nombre, :email, :hash, :cuenta_id, :rol)
                 """
             ),
             {
                 "nombre": nombre_limpio,
                 "email": email_normalizado,
                 "hash": hash_password,
-                "cuenta_id": cuenta_id
+                "cuenta_id": cuenta_id,
+                "rol": rol_cuenta
             }
         )
 
-        conn.execute(
-            text(
-                """
-                INSERT INTO gastos.suscripciones (cuenta_id, status)
-                VALUES (:cuenta_id, 'incomplete')
-                """
-            ),
-            {"cuenta_id": cuenta_id}
+        if cuenta_existente_id is None:
+
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO gastos.suscripciones (cuenta_id, status)
+                    VALUES (:cuenta_id, 'incomplete')
+                    """
+                ),
+                {"cuenta_id": cuenta_id}
+            )
+
+    if cuenta_existente_id is not None:
+
+        return True, (
+            "Te uniste a la cuenta familiar correctamente. "
+            "Ya puedes iniciar sesión."
         )
 
     return True, "Cuenta creada correctamente. Ahora elige tu plan para activarla."

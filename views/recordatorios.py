@@ -3,7 +3,12 @@ from datetime import date
 
 from db import ejecutar_query
 from db import obtener_dataframe
-from services.recordatorios_service import marcar_pagado
+from services.recordatorios_service import (
+    marcar_pagado,
+    puede_agregar_recordatorio,
+    contar_recordatorios_activos
+)
+from services.billing_service import obtener_plan_actual
 
 
 def pantalla_recordatorios():
@@ -13,26 +18,56 @@ def pantalla_recordatorios():
 
     st.title("🔔 Recordatorios")
 
+    plan = obtener_plan_actual(cuenta_id)
+
+    limite = (
+        plan.get("limite_recordatorios")
+        if plan is not None else None
+    )
+
+    activos = contar_recordatorios_activos(cuenta_id)
+
+    puede_agregar, mensaje_limite = puede_agregar_recordatorio(
+        cuenta_id
+    )
+
+    alcanzo_limite = not puede_agregar
+
     st.subheader("Nuevo Recordatorio")
 
+    if limite is not None:
+
+        st.caption(
+            f"Tu plan permite hasta {limite} recordatorios "
+            f"activos — llevas {activos}/{limite}."
+        )
+
+    if alcanzo_limite:
+
+        st.warning(mensaje_limite)
+
     descripcion = st.text_input(
-        "Descripción"
+        "Descripción",
+        disabled=alcanzo_limite
     )
 
     monto = st.number_input(
         "Monto",
         min_value=0.0,
-        step=100.0
+        step=100.0,
+        disabled=alcanzo_limite
     )
 
     fecha_vencimiento = st.date_input(
         "Fecha de vencimiento",
-        value=date.today()
+        value=date.today(),
+        disabled=alcanzo_limite
     )
 
     dias_anticipacion = st.selectbox(
         "Avisar con",
-        [7, 3, 1]
+        [7, 3, 1],
+        disabled=alcanzo_limite
     )
 
     frecuencia = st.selectbox(
@@ -43,11 +78,13 @@ def pantalla_recordatorios():
             "QUINCENAL",
             "MENSUAL",
             "ANUAL"
-        ]
+        ],
+        disabled=alcanzo_limite
     )
 
     if st.button(
-        "Guardar Recordatorio"
+        "Guardar Recordatorio",
+        disabled=alcanzo_limite
     ):
 
         ejecutar_query(

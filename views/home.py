@@ -9,7 +9,11 @@ from db import ejecutar_query
 
 from services.tts_service import texto_a_voz
 from services.recordatorios_service import marcar_pagado
-from services.narrativa_service import generar_narrativa_ia
+from services.narrativa_service import (
+    generar_narrativa_ia,
+    calcular_datos_proyeccion
+)
+from services.billing_service import obtener_plan_actual
 
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -129,7 +133,62 @@ def pantalla_home():
         frase_del_dia()
     )
 
-    narrativa = generar_narrativa_ia(cuenta_id)
+    plan = obtener_plan_actual(cuenta_id)
+
+    usar_ia = bool(
+        plan is not None
+        and plan.get("incluye_ia", True)
+    )
+
+    datos_proyeccion = calcular_datos_proyeccion(cuenta_id)
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+
+        st.metric(
+            "💰 Disponible",
+            f"${datos_proyeccion['disponible_actual']:,.0f}"
+        )
+
+    with col2:
+
+        proyeccion = datos_proyeccion["proyeccion_fin_periodo"]
+
+        st.metric(
+            "📈 Proyección del periodo",
+            (
+                f"${proyeccion:,.0f}"
+                if proyeccion is not None
+                else "—"
+            ),
+            delta=(
+                "Margen" if (
+                    proyeccion is not None and proyeccion >= 0
+                )
+                else "Déficit" if proyeccion is not None
+                else None
+            ),
+            delta_color=(
+                "normal" if (
+                    proyeccion is None or proyeccion >= 0
+                )
+                else "inverse"
+            )
+        )
+
+    with col3:
+
+        st.metric(
+            "🔔 Recordatorios pendientes",
+            len(df_recordatorios)
+        )
+
+    narrativa = generar_narrativa_ia(
+        cuenta_id,
+        usar_ia=usar_ia,
+        datos=datos_proyeccion
+    )
 
     st.success(narrativa)
 
