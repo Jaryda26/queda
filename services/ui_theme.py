@@ -74,6 +74,13 @@ def aplicar_tema():
 
         /* ============ MÉTRICAS ============ */
 
+        div[data-testid="stMetric"] {
+            background-color: #F5F7F6;
+            border-radius: 14px;
+            padding: 16px 20px;
+            box-shadow: 0 1px 3px rgba(15, 61, 55, 0.06);
+        }
+
         [data-testid="stMetricValue"] {
             font-weight: 800;
             color: #0F9D8B;
