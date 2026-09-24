@@ -79,7 +79,8 @@ def aplicar_tema():
             border: 1px solid #D3DEDC;
             border-radius: 14px;
             padding: 16px 20px;
-            min-height: 110px;
+            height: 128px;
+            overflow: hidden;
             display: flex;
             flex-direction: column;
             justify-content: center;

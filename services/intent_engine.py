@@ -265,6 +265,54 @@ def detectar_intencion(texto):
                 "accion": "ABRIR_ASISTENTE"
             }
 
+    # ======================================
+    # CUENTA (miembros / invitación)
+    # ======================================
+
+    cuenta = [
+
+        "mi cuenta",
+        "abre cuenta",
+        "abre mi cuenta",
+        "miembros",
+        "familia",
+        "codigo de invitacion",
+        "código de invitación"
+    ]
+
+    for palabra in cuenta:
+
+        if palabra in texto:
+
+            return {
+                "accion": "ABRIR_CUENTA"
+            }
+
+    # ======================================
+    # SUSCRIPCIÓN / PLAN
+    # ======================================
+
+    suscripcion = [
+
+        "suscripcion",
+        "suscripción",
+        "mi plan",
+        "planes",
+        "membresia",
+        "membresía",
+        "cambiar de plan",
+        "metodo de pago",
+        "método de pago"
+    ]
+
+    for palabra in suscripcion:
+
+        if palabra in texto:
+
+            return {
+                "accion": "ABRIR_SUSCRIPCION"
+            }
+
 
 
     # ======================================

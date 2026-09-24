@@ -290,6 +290,20 @@ def _limpiar_formato(texto):
     )
 
 
+def _escapar_para_markdown(texto):
+    """
+    st.success()/st.markdown() interpretan cualquier texto entre
+    dos signos $ como fórmula LaTeX — con varios montos en el
+    mismo mensaje ("$7,101 ... $4,333 ... $1,300"), todo lo que
+    queda ENTRE el primer y el segundo $ se renderiza como
+    ecuación, con otra tipografía. Escapamos el $ como \\$ (así
+    se ve como texto plano) en el paso final, sin importar si el
+    texto vino de la IA o de la plantilla.
+    """
+
+    return texto.replace("$", "\\$")
+
+
 def generar_narrativa_ia(cuenta_id, usar_ia=True, datos=None):
     """
     Genera el mensaje del día: los datos se calculan siempre en
@@ -307,6 +321,8 @@ def generar_narrativa_ia(cuenta_id, usar_ia=True, datos=None):
 
     if datos is None:
         datos = calcular_datos_proyeccion(cuenta_id)
+
+    resultado = None
 
     if usar_ia:
 
@@ -338,9 +354,12 @@ def generar_narrativa_ia(cuenta_id, usar_ia=True, datos=None):
             texto = response.choices[0].message.content.strip()
 
             if texto:
-                return _limpiar_formato(texto)
+                resultado = _limpiar_formato(texto)
 
         except Exception:
             pass
 
-    return _narrativa_plantilla(datos)
+    if resultado is None:
+        resultado = _narrativa_plantilla(datos)
+
+    return _escapar_para_markdown(resultado)

@@ -9,6 +9,43 @@ from services.recordatorios_service import (
 )
 
 
+def _resolver_fecha_movimiento(resultado):
+    """
+    Si el usuario mencionó cuándo pasó el gasto/ingreso ("ayer",
+    "antier", "el 20 de septiembre"), la IA ya lo resolvió a
+    YYYY-MM-DD y llega en resultado["fecha"]. Si no vino, se usa
+    el momento actual (mismo comportamiento de siempre).
+
+    Regresa (fecha_a_usar, aviso_o_None) — nunca bloquea el
+    registro: si la fecha viene mal formada, cae a hoy y avisa.
+    """
+
+    fecha_texto = resultado.get("fecha")
+
+    if not fecha_texto:
+        return datetime.now(), None
+
+    try:
+
+        fecha_parseada = datetime.strptime(
+            str(fecha_texto),
+            "%Y-%m-%d"
+        ).date()
+
+        return (
+            datetime.combine(fecha_parseada, datetime.min.time()),
+            None
+        )
+
+    except ValueError:
+
+        return (
+            datetime.now(),
+            " (no logré interpretar la fecha que mencionaste, "
+            "se guardó con la fecha de hoy)"
+        )
+
+
 def ejecutar_accion(resultado):
 
     accion = resultado.get(
@@ -136,6 +173,36 @@ def ejecutar_accion(resultado):
         st.session_state[
             "debug_accion"
         ] = "asistente"
+
+        st.rerun()
+
+    # =====================================
+    # ABRIR CUENTA
+    # =====================================
+    if accion == "ABRIR_CUENTA":
+
+        st.session_state["pagina_actual"] = (
+            "👨‍👩‍👧 Cuenta"
+        )
+
+        st.session_state[
+            "debug_accion"
+        ] = "cuenta"
+
+        st.rerun()
+
+    # =====================================
+    # ABRIR SUSCRIPCIÓN
+    # =====================================
+    if accion == "ABRIR_SUSCRIPCION":
+
+        st.session_state["pagina_actual"] = (
+            "💳 Suscripción"
+        )
+
+        st.session_state[
+            "debug_accion"
+        ] = "suscripcion"
 
         st.rerun()
         
@@ -341,6 +408,10 @@ def ejecutar_accion(resultado):
                 "el importe del gasto."
             )
 
+        fecha_movimiento, aviso_fecha = _resolver_fecha_movimiento(
+            resultado
+        )
+
         ejecutar_query(
             """
             INSERT INTO gastos.movimientos
@@ -351,7 +422,8 @@ def ejecutar_accion(resultado):
                 categoria,
                 concepto,
                 monto,
-                texto_original
+                texto_original,
+                fecha
             )
             VALUES
             (
@@ -361,7 +433,8 @@ def ejecutar_accion(resultado):
                 :categoria,
                 :concepto,
                 :monto,
-                :texto
+                :texto,
+                :fecha
             )
             """,
             {
@@ -390,13 +463,18 @@ def ejecutar_accion(resultado):
                     resultado.get(
                         "texto_original",
                         ""
-                    )
+                    ),
+
+                "fecha":
+                    fecha_movimiento
             }
         )
 
         return (
             f"✅ Gasto registrado "
             f"${monto:,.2f}"
+            f"{f' el {fecha_movimiento:%d/%m/%Y}' if resultado.get('fecha') else ''}"
+            f"{aviso_fecha or ''}"
         )
 
     # =====================================
@@ -419,6 +497,10 @@ def ejecutar_accion(resultado):
                 "el importe del ingreso."
             )
 
+        fecha_movimiento, aviso_fecha = _resolver_fecha_movimiento(
+            resultado
+        )
+
         ejecutar_query(
             """
             INSERT INTO gastos.movimientos
@@ -430,7 +512,8 @@ def ejecutar_accion(resultado):
                 concepto,
                 monto,
                 texto_original,
-                origen_ingreso
+                origen_ingreso,
+                fecha
             )
             VALUES
             (
@@ -441,7 +524,8 @@ def ejecutar_accion(resultado):
                 :concepto,
                 :monto,
                 :texto,
-                :origen
+                :origen,
+                :fecha
             )
             """,
             {
@@ -470,13 +554,18 @@ def ejecutar_accion(resultado):
                     resultado.get(
                         "origen_ingreso",
                         "Otro"
-                    )
+                    ),
+
+                "fecha":
+                    fecha_movimiento
             }
         )
 
         return (
             f"✅ Ingreso registrado "
             f"${monto:,.2f}"
+            f"{f' el {fecha_movimiento:%d/%m/%Y}' if resultado.get('fecha') else ''}"
+            f"{aviso_fecha or ''}"
         )
 
     # =====================================

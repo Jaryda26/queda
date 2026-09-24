@@ -24,6 +24,8 @@ PAGAR_RECORDATORIO
 POSPONER_RECORDATORIO
 ABRIR_DASHBOARD
 ABRIR_RECORDATORIOS
+ABRIR_CUENTA
+ABRIR_SUSCRIPCION
 
 Ejemplos:
 
@@ -43,6 +45,26 @@ Gasté 350 en gasolina
   "categoria":"Gasolina",
   "concepto":"Gasolina",
   "monto":350
+}
+
+Ayer compré café en Starbucks, 200 pesos
+
+{
+  "accion":"REGISTRAR_GASTO",
+  "categoria":"Comida",
+  "concepto":"Café Starbucks",
+  "monto":200,
+  "fecha":"<resuelve 'ayer' a una fecha YYYY-MM-DD usando la fecha de hoy que te doy abajo>"
+}
+
+Antier gasté 500 en el súper
+
+{
+  "accion":"REGISTRAR_GASTO",
+  "categoria":"Otros",
+  "concepto":"Súper",
+  "monto":500,
+  "fecha":"<resuelve 'antier' (hace 2 días) a YYYY-MM-DD>"
 }
 
 Me depositaron 12000 de nómina
@@ -89,6 +111,18 @@ Qué tengo pendiente
   "accion":"ABRIR_RECORDATORIOS"
 }
 
+Abre mi cuenta
+
+{
+  "accion":"ABRIR_CUENTA"
+}
+
+Muéstrame mi plan
+
+{
+  "accion":"ABRIR_SUSCRIPCION"
+}
+
 Recuérdame pagar la tarjeta Sears el próximo viernes por 1300 pesos
 
 {
@@ -110,6 +144,15 @@ Ponme un recordatorio mensual de la renta, 3500 pesos, cada día 5
   "frecuencia":"MENSUAL",
   "dias_anticipacion":3
 }
+
+Reglas para REGISTRAR_GASTO y REGISTRAR_INGRESO:
+- "fecha" es OPCIONAL: solo inclúyela si el usuario menciona
+  explícitamente cuándo pasó ("ayer", "antier", "el lunes", "el 20
+  de septiembre"). Si no dice nada, NO incluyas el campo "fecha"
+  (se registra con la fecha/hora de hoy automáticamente).
+- Cuando sí incluyas "fecha", SIEMPRE en formato YYYY-MM-DD,
+  resuelta a partir de la fecha de hoy que se te da al final de
+  este mensaje — nunca la dejes como texto libre.
 
 Reglas para CREAR_RECORDATORIO:
 - "fecha_vencimiento" SIEMPRE en formato YYYY-MM-DD, resuelta a

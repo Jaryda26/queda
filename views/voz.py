@@ -78,13 +78,14 @@ def pantalla_voz():
             )
 
             # IMPORTANTE:
-            # limpiar audio antes del rerun
+            # limpiar audio antes del rerun — cualquier acción de
+            # navegación (ABRIR_*) dispara st.rerun() dentro de
+            # ejecutar_accion(), lo que corta la ejecución de esta
+            # función ahí mismo. Si el audio no se limpia ANTES de
+            # llamar a ejecutar_accion(), las líneas de después
+            # nunca corren.
 
-            if accion in (
-                "ABRIR_INICIO",
-                "ABRIR_DASHBOARD",
-                "ABRIR_RECORDATORIOS"
-            ):
+            if accion.startswith("ABRIR_"):
 
                 st.session_state[
                     "audio_global"
