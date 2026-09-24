@@ -58,23 +58,40 @@ def pantalla_suscripcion():
 
             if st.button("🔄 Actualizar estado desde Stripe"):
 
-                estado = sincronizar_suscripcion(cuenta_id)
+                try:
 
-                st.info(f"Estado actualizado: {estado}")
-                st.rerun()
+                    estado = sincronizar_suscripcion(cuenta_id)
+
+                    st.info(f"Estado actualizado: {estado}")
+                    st.rerun()
+
+                except Exception as e:
+
+                    st.error(
+                        f"No se pudo consultar Stripe: {e}"
+                    )
 
         with col2:
 
-            portal_url = crear_portal_facturacion(
-                cuenta_id,
-                _url_base()
-            )
+            try:
 
-            if portal_url:
+                portal_url = crear_portal_facturacion(
+                    cuenta_id,
+                    _url_base()
+                )
 
-                st.link_button(
-                    "🧾 Administrar pago / cancelar",
-                    portal_url
+                if portal_url:
+
+                    st.link_button(
+                        "🧾 Administrar pago / cancelar",
+                        portal_url
+                    )
+
+            except Exception as e:
+
+                st.caption(
+                    f"Portal de facturación no disponible "
+                    f"todavía: {e}"
                 )
 
     else:

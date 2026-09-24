@@ -8,7 +8,16 @@ from db import obtener_dataframe, ejecutar_query
 
 def _configurar_stripe():
 
-    stripe.api_key = st.secrets["STRIPE_SECRET_KEY"]
+    try:
+
+        stripe.api_key = st.secrets["STRIPE_SECRET_KEY"]
+
+    except Exception:
+
+        raise RuntimeError(
+            "Falta STRIPE_SECRET_KEY en st.secrets — todavía no "
+            "se pueden procesar pagos."
+        )
 
     return stripe
 
