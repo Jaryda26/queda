@@ -65,6 +65,53 @@
       .trim();
   }
 
+  function distanciaLevenshtein(a, b) {
+
+    var filas = a.length + 1;
+    var columnas = b.length + 1;
+    var matriz = [];
+
+    for (var i = 0; i < filas; i++) {
+      matriz.push([i]);
+    }
+
+    for (var j = 0; j < columnas; j++) {
+      matriz[0][j] = j;
+    }
+
+    for (var fi = 1; fi < filas; fi++) {
+
+      for (var cj = 1; cj < columnas; cj++) {
+
+        if (a[fi - 1] === b[cj - 1]) {
+
+          matriz[fi][cj] = matriz[fi - 1][cj - 1];
+
+        } else {
+
+          matriz[fi][cj] = 1 + Math.min(
+            matriz[fi - 1][cj],
+            matriz[fi][cj - 1],
+            matriz[fi - 1][cj - 1]
+          );
+        }
+      }
+    }
+
+    return matriz[filas - 1][columnas - 1];
+  }
+
+  function similitud(a, b) {
+
+    var largoMax = Math.max(a.length, b.length);
+
+    if (largoMax === 0) {
+      return 1;
+    }
+
+    return 1 - (distanciaLevenshtein(a, b) / largoMax);
+  }
+
   function enviarValor(valor) {
 
     window.parent.postMessage({
@@ -170,17 +217,22 @@
         return;
       }
 
-      var idx = normalizado.indexOf(nombreNormalizado);
+      // Comparamos por SIMILITUD, no por igualdad exacta — un
+      // nombre poco común como "Trobi" rara vez se transcribe
+      // idéntico ("Trovit", "Trovi", etc.), así que buscar el
+      // nombre exacto dentro del texto casi nunca encontraba
+      // nada y la activación no hacía nada visible.
 
-      if (idx === -1) {
+      var palabras = normalizado.split(" ");
+      var primeraPalabra = palabras[0] || "";
+
+      var parecido = similitud(primeraPalabra, nombreNormalizado);
+
+      if (parecido < 0.6) {
         return;
       }
 
-      var resto = transcripcion
-        .substring(idx + nombreActivacion.length)
-        .trim()
-        .replace(/^[,.:;!?]+/, "")
-        .trim();
+      var resto = palabras.slice(1).join(" ").trim();
 
       if (resto.length > 0) {
 

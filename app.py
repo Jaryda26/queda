@@ -61,10 +61,15 @@ def _cerrar_sesion():
         except Exception:
             pass
 
-    cookie_manager.delete(
-        "queda_token",
-        key="borrar_queda_token"
-    )
+    try:
+
+        cookie_manager.delete(
+            "queda_token",
+            key="borrar_queda_token"
+        )
+
+    except Exception:
+        pass
 
     st.session_state.clear()
 
@@ -207,7 +212,7 @@ else:
         recording_color="#e74c3c",
         neutral_color="#2c3e50",
         icon_name="microphone",
-        icon_size="2x"
+        icon_size="5x"
     )
 
     # =====================================

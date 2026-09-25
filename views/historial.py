@@ -58,21 +58,41 @@ def pantalla_historial():
             f"{row['fecha']} | {row['concepto']} | ${float(row['monto']):,.2f}"
         ):
 
-            st.markdown(
-                f"""
-**Tipo:** {row['tipo']}
-
-**Categoría:** {row['categoria']}
-
-**Concepto:** {row['concepto']}
-
-**Monto:** ${float(row['monto']):,.2f}
-
-**Origen ingreso:** {row['origen_ingreso']}
-
-**Texto original:** {row['texto_original']}
-"""
+            texto_detalle = (
+                f"**Tipo:** {row['tipo']}\n\n"
+                f"**Categoría:** {row['categoria']}\n\n"
+                f"**Concepto:** {row['concepto']}\n\n"
+                f"**Monto:** ${float(row['monto']):,.2f}\n\n"
             )
+
+            # "Origen ingreso" solo aplica a movimientos tipo
+            # INGRESO — en un GASTO esa columna siempre está vacía
+            # en la base, y mostrarla igual salía como "nan"
+            # (así se ve un NULL de Postgres una vez que pandas
+            # lo trae), que no significa nada para el usuario.
+
+            if (
+                row["tipo"] == "INGRESO"
+                and pd.notna(row["origen_ingreso"])
+                and str(row["origen_ingreso"]).strip()
+            ):
+
+                texto_detalle += (
+                    f"**Origen ingreso:** "
+                    f"{row['origen_ingreso']}\n\n"
+                )
+
+            if (
+                pd.notna(row["texto_original"])
+                and str(row["texto_original"]).strip()
+            ):
+
+                texto_detalle += (
+                    f"**Texto original:** "
+                    f"{row['texto_original']}\n\n"
+                )
+
+            st.markdown(texto_detalle)
 
             c1, c2 = st.columns(2)
 

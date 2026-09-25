@@ -1,6 +1,7 @@
 import tempfile
 import hashlib
 import re
+import difflib
 import streamlit as st
 
 from services.speech_service import speech_to_text
@@ -34,6 +35,62 @@ def _extraer_monto_de_texto(texto):
         return None
 
 
+def _quitar_nombre_agente(texto):
+    """
+    Si el texto empieza con el nombre del agente que eligió el
+    usuario ("Trobi, cuánto llevo gastado"), lo quita y regresa
+    solo el comando real. Si el texto es SOLO el nombre (sin nada
+    más), regresa cadena vacía. Si el nombre no aparece al inicio,
+    regresa el texto sin tocar — el clic + Azure Speech no exige
+    decir el nombre, solo lo reconoce si está.
+
+    La comparación es TOLERANTE, no exacta: un nombre como "Trobi"
+    no es una palabra común en español, así que el reconocimiento
+    de voz lo transcribe distinto cada vez ("Trovit", "Trovi",
+    etc.) — si exigiéramos coincidencia exacta, casi nunca se
+    reconocería a sí mismo y el mensaje se mandaría tal cual a la
+    IA, que a veces "adivinaba" que era el nombre de un
+    recordatorio y regresaba "No encontré Trovit". Por eso se
+    compara la PRIMERA PALABRA dicha contra el nombre configurado
+    por similitud (no por igualdad) y se acepta si se parecen lo
+    suficiente.
+    """
+
+    nombre_agente = st.session_state.get(
+        "nombre_agente",
+        "Queda"
+    ).strip()
+
+    if not nombre_agente:
+        return texto
+
+    palabras = texto.strip().split()
+
+    if not palabras:
+        return texto
+
+    primera_palabra = re.sub(
+        r"[^\wáéíóúñü]",
+        "",
+        palabras[0],
+        flags=re.IGNORECASE
+    )
+
+    similitud = difflib.SequenceMatcher(
+        None,
+        primera_palabra.lower(),
+        nombre_agente.lower()
+    ).ratio()
+
+    if similitud < 0.6:
+        return texto
+
+    resto = " ".join(palabras[1:]).strip()
+    resto = re.sub(r"^[,.:;!?]+\s*", "", resto)
+
+    return resto
+
+
 def procesar_texto_voz(texto):
     """
     Toma un texto ya transcrito (venga de Azure Speech vía audio,
@@ -44,6 +101,19 @@ def procesar_texto_voz(texto):
     IA. Centralizado aquí para que ambos caminos de entrada de voz
     compartan la misma lógica en vez de duplicarla.
     """
+
+    texto_sin_nombre = _quitar_nombre_agente(texto)
+
+    if texto_sin_nombre != texto:
+
+        if not texto_sin_nombre:
+
+            return {
+                "tipo": "MENSAJE",
+                "mensaje": "🎙️ Te escucho, ¿qué necesitas?"
+            }
+
+        texto = texto_sin_nombre
 
     st.session_state[
         "ultimo_texto_voz"
