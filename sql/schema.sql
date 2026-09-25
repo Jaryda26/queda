@@ -41,8 +41,11 @@ CREATE TABLE IF NOT EXISTS gastos.recordatorios (
  pagado BOOLEAN DEFAULT FALSE,
  fecha_ultimo_pago DATE,
  fecha_proxima_alerta DATE,
- fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+ fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ tipo VARCHAR(20) NOT NULL DEFAULT 'PAGO' -- PAGO (con monto, genera un gasto al completarse) | ACTIVIDAD (solo un pendiente, sin dinero de por medio)
 );
+
+ALTER TABLE gastos.recordatorios ADD COLUMN IF NOT EXISTS tipo VARCHAR(20) NOT NULL DEFAULT 'PAGO';
 
 CREATE TABLE IF NOT EXISTS gastos.diccionario_usuario (
  id SERIAL PRIMARY KEY,

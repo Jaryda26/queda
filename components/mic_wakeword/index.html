@@ -185,7 +185,7 @@
     recognition = new SpeechRecognition();
     recognition.lang = "es-MX";
     recognition.continuous = true;
-    recognition.interimResults = false;
+    recognition.interimResults = true;
 
     recognition.onstart = function () {
 
@@ -200,6 +200,18 @@
       var ultimo = event.results[event.results.length - 1];
 
       if (!ultimo.isFinal) {
+
+        // Muestra en vivo lo que va entendiendo, aunque todavía
+        // no sea definitivo — así se puede confirmar a simple
+        // vista si el micrófono SÍ está captando audio o no,
+        // en vez de solo ver "Di Trobi para activarme" sin saber
+        // si está escuchando de verdad.
+
+        actualizarEstado(
+          "🎙️ " + ultimo[0].transcript,
+          true
+        );
+
         return;
       }
 
@@ -229,6 +241,7 @@
       var parecido = similitud(primeraPalabra, nombreNormalizado);
 
       if (parecido < 0.6) {
+        actualizarEstado(fraseEspera(), true);
         return;
       }
 

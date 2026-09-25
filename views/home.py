@@ -314,6 +314,7 @@ def pantalla_home():
             row = tarjeta["row"]
             icono = tarjeta["icono"]
             mensaje = tarjeta["mensaje"]
+            es_pago = row["tipo"] == "PAGO"
 
             with col:
 
@@ -323,9 +324,15 @@ def pantalla_home():
                         f"**{icono} {row['descripcion']}**"
                     )
 
-                    st.markdown(
-                        f"💰 ${float(row['monto']):,.2f}"
-                    )
+                    if es_pago:
+
+                        st.markdown(
+                            f"💰 ${float(row['monto'] or 0):,.2f}"
+                        )
+
+                    else:
+
+                        st.markdown("📌 Actividad pendiente")
 
                     st.caption(f"📅 {mensaje}")
                     st.caption(
@@ -337,17 +344,19 @@ def pantalla_home():
                     with b1:
 
                         if st.button(
-                            "✅ Pagado",
+                            "✅ Pagado" if es_pago else "✅ Hecho",
                             key=f"pagado_{row['id']}",
                             use_container_width=True
                         ):
 
-                            registrar_pago(
-                                uid,
-                                cuenta_id,
-                                row["descripcion"],
-                                float(row["monto"])
-                            )
+                            if es_pago:
+
+                                registrar_pago(
+                                    uid,
+                                    cuenta_id,
+                                    row["descripcion"],
+                                    float(row["monto"] or 0)
+                                )
 
                             marcar_pagado(
                                 int(row["id"]),
@@ -357,6 +366,8 @@ def pantalla_home():
 
                             st.success(
                                 "✅ Pago registrado"
+                                if es_pago
+                                else "✅ Marcado como hecho"
                             )
 
                             st.rerun()

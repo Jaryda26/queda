@@ -46,17 +46,36 @@ def pantalla_recordatorios():
 
         st.warning(mensaje_limite)
 
+    tipo_recordatorio = st.radio(
+        "¿Qué tipo de recordatorio es?",
+        ["💳 Pago", "✅ Actividad pendiente"],
+        horizontal=True,
+        disabled=alcanzo_limite,
+        help=(
+            "Pago: tiene un monto y, al marcarlo hecho, se "
+            "registra como gasto. Actividad: solo un pendiente "
+            "que no mueve dinero (ej. un trámite, un pendiente "
+            "personal)."
+        )
+    )
+
+    es_pago = tipo_recordatorio == "💳 Pago"
+
     descripcion = st.text_input(
         "Descripción",
         disabled=alcanzo_limite
     )
 
-    monto = st.number_input(
-        "Monto",
-        min_value=0.0,
-        step=100.0,
-        disabled=alcanzo_limite
-    )
+    monto = 0.0
+
+    if es_pago:
+
+        monto = st.number_input(
+            "Monto",
+            min_value=0.0,
+            step=100.0,
+            disabled=alcanzo_limite
+        )
 
     fecha_vencimiento = st.date_input(
         "Fecha de vencimiento",
@@ -79,6 +98,10 @@ def pantalla_recordatorios():
             "MENSUAL",
             "ANUAL"
         ],
+        help=(
+            "ANUAL es útil para cosas como cumpleaños o trámites "
+            "que se repiten cada año."
+        ),
         disabled=alcanzo_limite
     )
 
@@ -97,7 +120,8 @@ def pantalla_recordatorios():
                 monto,
                 fecha_vencimiento,
                 dias_anticipacion,
-                frecuencia
+                frecuencia,
+                tipo
             )
             VALUES
             (
@@ -107,17 +131,19 @@ def pantalla_recordatorios():
                 :monto,
                 :fecha_vencimiento,
                 :dias,
-                :frecuencia
+                :frecuencia,
+                :tipo
             )
             """,
             {
                 "uid": uid,
                 "cuenta_id": cuenta_id,
                 "descripcion": descripcion,
-                "monto": monto,
+                "monto": monto if es_pago else None,
                 "fecha_vencimiento": fecha_vencimiento,
                 "dias": dias_anticipacion,
-                "frecuencia": frecuencia
+                "frecuencia": frecuencia,
+                "tipo": "PAGO" if es_pago else "ACTIVIDAD"
             }
         )
 
@@ -143,7 +169,8 @@ def pantalla_recordatorios():
             dias_anticipacion,
             frecuencia,
             pagado,
-            fecha_ultimo_pago
+            fecha_ultimo_pago,
+            tipo
         FROM gastos.recordatorios
         WHERE cuenta_id = :cuenta_id
         ORDER BY fecha_vencimiento
@@ -161,15 +188,21 @@ def pantalla_recordatorios():
 
     for _, row in df.iterrows():
 
+        es_pago_row = row["tipo"] == "PAGO"
+
         estado = (
-            "✅ PAGADO"
+            "✅ HECHO"
             if row["pagado"]
-            else "🔔 PENDIENTE"
+            else ("🔔 PENDIENTE" if es_pago_row else "📌 PENDIENTE")
         )
 
-        with st.expander(
+        etiqueta_titulo = (
             f"{row['descripcion']} - {estado}"
-        ):
+            if es_pago_row
+            else f"📌 {row['descripcion']} - {estado}"
+        )
+
+        with st.expander(etiqueta_titulo):
 
             nueva_descripcion = st.text_input(
                 "Descripción",
@@ -177,12 +210,23 @@ def pantalla_recordatorios():
                 key=f"desc_{row['id']}"
             )
 
-            nuevo_monto = st.number_input(
-                "Monto",
-                min_value=0.0,
-                value=float(row["monto"]),
-                key=f"monto_{row['id']}"
-            )
+            if es_pago_row:
+
+                nuevo_monto = st.number_input(
+                    "Monto",
+                    min_value=0.0,
+                    value=float(row["monto"] or 0),
+                    key=f"monto_{row['id']}"
+                )
+
+            else:
+
+                nuevo_monto = None
+
+                st.caption(
+                    "Recordatorio de actividad — sin monto, no "
+                    "genera ningún gasto al marcarlo hecho."
+                )
 
             nueva_fecha = st.date_input(
                 "Fecha vencimiento",
@@ -261,7 +305,7 @@ def pantalla_recordatorios():
                 if not row["pagado"]:
 
                     if st.button(
-                        "✅ Pagar",
+                        "✅ Pagar" if es_pago_row else "✅ Hecho",
                         key=f"pay_{row['id']}"
                     ):
 
@@ -273,6 +317,8 @@ def pantalla_recordatorios():
 
                         st.success(
                             "✅ Pago registrado"
+                            if es_pago_row
+                            else "✅ Marcado como hecho"
                         )
 
                         st.rerun()
@@ -306,7 +352,7 @@ def pantalla_recordatorios():
 
                         st.success(
                             f"""
-✅ Pago recurrente
+✅ {'Pago recurrente' if es_pago_row else 'Actividad recurrente'}
 
 Frecuencia:
 {row['frecuencia']}

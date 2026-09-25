@@ -334,6 +334,32 @@ def detectar_intencion(texto):
                 "accion": "ABRIR_SUSCRIPCION"
             }
 
+    # ======================================
+    # REPETIR RESUMEN DEL DÍA
+    # ======================================
+
+    resumen = [
+        "repite el resumen",
+        "repiteme el resumen",
+        "repíteme el resumen",
+        "dame el resumen",
+        "dame el contexto",
+        "cual es mi resumen",
+        "cuál es mi resumen",
+        "recuerdame mi situacion",
+        "recuérdame mi situación",
+        "como voy",
+        "cómo voy"
+    ]
+
+    for palabra in resumen:
+
+        if palabra in texto:
+
+            return {
+                "accion": "REPETIR_RESUMEN"
+            }
+
 
 
     # ======================================

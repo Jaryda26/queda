@@ -10,3 +10,4 @@ audio-recorder-streamlit
 azure-cognitiveservices-speech
 stripe
 extra-streamlit-components
+requests

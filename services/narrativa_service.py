@@ -158,9 +158,26 @@ def calcular_datos_proyeccion(cuenta_id):
 
         datos["recordatorios_pendientes"] = len(recordatorios_df)
 
-        if not recordatorios_df.empty:
+        # Solo los recordatorios de tipo PAGO entran en la
+        # proyección financiera del día — una actividad (un
+        # trámite, un cumpleaños) no tiene monto y no tiene
+        # sentido calcularle "cuánto te va a sobrar".
 
-            row = recordatorios_df.iloc[0]
+        pagos_df = obtener_dataframe(
+            """
+            SELECT descripcion, monto, fecha_vencimiento
+            FROM gastos.recordatorios
+            WHERE cuenta_id = :cuenta_id
+            AND pagado = FALSE
+            AND tipo = 'PAGO'
+            ORDER BY fecha_vencimiento
+            """,
+            {"cuenta_id": cuenta_id}
+        )
+
+        if not pagos_df.empty:
+
+            row = pagos_df.iloc[0]
             fecha_recordatorio = row["fecha_vencimiento"]
 
             dias_para_recordatorio = (

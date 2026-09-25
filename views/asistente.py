@@ -26,6 +26,8 @@ ABRIR_DASHBOARD
 ABRIR_RECORDATORIOS
 ABRIR_CUENTA
 ABRIR_SUSCRIPCION
+REPETIR_RESUMEN
+CONSULTA_GENERAL
 
 Ejemplos:
 
@@ -147,10 +149,38 @@ Muéstrame mi plan
   "accion":"ABRIR_SUSCRIPCION"
 }
 
+Repite el resumen
+
+{
+  "accion":"REPETIR_RESUMEN"
+}
+
+Dame algún consejo
+
+{
+  "accion":"CONSULTA_GENERAL",
+  "pregunta":"Dame algún consejo"
+}
+
+Hoy a cómo está el dólar, ¿valdrá la pena ahorrar?
+
+{
+  "accion":"CONSULTA_GENERAL",
+  "pregunta":"Hoy a cómo está el dólar, ¿valdrá la pena ahorrar?"
+}
+
+Si ahorro 100 pesos a la semana, ¿cuánto junto al fin de año?
+
+{
+  "accion":"CONSULTA_GENERAL",
+  "pregunta":"Si ahorro 100 pesos a la semana, ¿cuánto junto al fin de año?"
+}
+
 Recuérdame pagar la tarjeta Sears el próximo viernes por 1300 pesos
 
 {
   "accion":"CREAR_RECORDATORIO",
+  "tipo":"PAGO",
   "descripcion":"Tarjeta Sears",
   "monto":1300,
   "fecha_vencimiento":"<resuelve 'próximo viernes' a una fecha YYYY-MM-DD usando la fecha de hoy que te doy abajo>",
@@ -162,10 +192,35 @@ Ponme un recordatorio mensual de la renta, 3500 pesos, cada día 5
 
 {
   "accion":"CREAR_RECORDATORIO",
+  "tipo":"PAGO",
   "descripcion":"Renta",
   "monto":3500,
   "fecha_vencimiento":"<el día 5 más próximo desde hoy, YYYY-MM-DD>",
   "frecuencia":"MENSUAL",
+  "dias_anticipacion":3
+}
+
+Tengo que tramitar mi tarjeta de residente en Tepo, recuérdamelo en septiembre de 2027
+
+{
+  "accion":"CREAR_RECORDATORIO",
+  "tipo":"ACTIVIDAD",
+  "descripcion":"Tramitar tarjeta de residente en Tepo",
+  "monto":null,
+  "fecha_vencimiento":"<primer día de septiembre de 2027, YYYY-MM-DD>",
+  "frecuencia":"UNICO",
+  "dias_anticipacion":7
+}
+
+Quedé de comprarle un pastel a mi hija, acuérdame hoy es su cumpleaños
+
+{
+  "accion":"CREAR_RECORDATORIO",
+  "tipo":"ACTIVIDAD",
+  "descripcion":"Comprarle pastel a mi hija (cumpleaños)",
+  "monto":null,
+  "fecha_vencimiento":"<hoy, YYYY-MM-DD — se repite cada año>",
+  "frecuencia":"ANUAL",
   "dias_anticipacion":3
 }
 
@@ -179,6 +234,13 @@ Reglas para REGISTRAR_GASTO y REGISTRAR_INGRESO:
   este mensaje — nunca la dejes como texto libre.
 
 Reglas para CREAR_RECORDATORIO:
+- "tipo" es "PAGO" (tiene un monto, es dinero que hay que pagar) o
+  "ACTIVIDAD" (un pendiente que no mueve dinero — un trámite, un
+  cumpleaños, algo que quedaste de hacer). Si el usuario menciona un
+  monto o algo que suena a pago/cobro, usa "PAGO"; si es un trámite,
+  una tarea, un compromiso personal o algo así, usa "ACTIVIDAD".
+- "monto" solo aplica si "tipo" es "PAGO" — para "ACTIVIDAD" siempre
+  déjalo como null.
 - "fecha_vencimiento" SIEMPRE en formato YYYY-MM-DD, resuelta a
   partir de la fecha de hoy que se te da al final de este mensaje
   — nunca la dejes como texto libre ("el viernes"), conviértela.
@@ -325,6 +387,12 @@ def pantalla_asistente():
 - Muéstrame estadísticas
 - Recuérdame pagar la tarjeta Sears el próximo viernes por 1300
 - Ponme un recordatorio mensual de la renta, 3500, cada día 5
+- Tengo que tramitar mi tarjeta de residente en Tepo en septiembre de 2027
+- Quedé de comprarle un pastel a mi hija, acuérdame hoy es su cumpleaños
+- Repite el resumen
+- Dame algún consejo
+- Hoy a cómo está el dólar, ¿valdrá la pena ahorrar?
+- Si ahorro 100 pesos a la semana, ¿cuánto junto al fin de año?
 """
     )
 

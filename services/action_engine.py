@@ -1,4 +1,5 @@
 import streamlit as st
+import json
 from datetime import datetime
 
 from db import ejecutar_query
@@ -333,51 +334,55 @@ def ejecutar_accion(resultado):
             row["frecuencia"]
         )
 
-        ejecutar_query(
-            """
-            INSERT INTO gastos.movimientos
-            (
-                usuario_id,
-                cuenta_id,
-                tipo,
-                categoria,
-                concepto,
-                monto,
-                texto_original
+        es_pago = row.get("tipo", "PAGO") == "PAGO"
+
+        if es_pago:
+
+            ejecutar_query(
+                """
+                INSERT INTO gastos.movimientos
+                (
+                    usuario_id,
+                    cuenta_id,
+                    tipo,
+                    categoria,
+                    concepto,
+                    monto,
+                    texto_original
+                )
+                VALUES
+                (
+                    :uid,
+                    :cuenta_id,
+                    'GASTO',
+                    'Recordatorio',
+                    :concepto,
+                    :monto,
+                    :texto
+                )
+                """,
+                {
+                    "uid":
+                        st.session_state["user_id"],
+
+                    "cuenta_id":
+                        st.session_state["cuenta_id"],
+
+                    "concepto":
+                        row["descripcion"],
+
+                    "monto":
+                        float(row["monto"] or 0),
+
+                    "texto":
+                        f"Pago automático de {row['descripcion']}"
+                }
             )
-            VALUES
-            (
-                :uid,
-                :cuenta_id,
-                'GASTO',
-                'Recordatorio',
-                :concepto,
-                :monto,
-                :texto
-            )
-            """,
-            {
-                "uid":
-                    st.session_state["user_id"],
-
-                "cuenta_id":
-                    st.session_state["cuenta_id"],
-
-                "concepto":
-                    row["descripcion"],
-
-                "monto":
-                    float(row["monto"]),
-
-                "texto":
-                    f"Pago automático de {row['descripcion']}"
-            }
-        )
 
         if str(row["frecuencia"]).upper() == "UNICO":
 
             return (
-                f"✅ Marqué como pagado "
+                f"✅ Marqué como {'pagado' if es_pago else 'hecho'} "
                 f"{row['descripcion']}"
             )
 
@@ -580,8 +585,18 @@ def ejecutar_accion(resultado):
             resultado.get("descripcion", "")
         ).strip()
 
-        monto = float(
-            resultado.get("monto", 0) or 0
+        tipo_recordatorio = str(
+            resultado.get("tipo", "PAGO")
+        ).upper()
+
+        if tipo_recordatorio not in ("PAGO", "ACTIVIDAD"):
+            tipo_recordatorio = "PAGO"
+
+        es_pago = tipo_recordatorio == "PAGO"
+
+        monto = (
+            float(resultado.get("monto", 0) or 0)
+            if es_pago else None
         )
 
         fecha_vencimiento = resultado.get(
@@ -608,7 +623,8 @@ def ejecutar_accion(resultado):
                 "fecha del recordatorio. Intenta de nuevo siendo "
                 "más específico, por ejemplo: 'recuérdame pagar "
                 "la tarjeta Sears el 30 de este mes por 1300 "
-                "pesos'."
+                "pesos' o 'recuérdame tramitar mi tarjeta de "
+                "residente en septiembre de 2027'."
             )
 
         try:
@@ -643,7 +659,8 @@ def ejecutar_accion(resultado):
                 monto,
                 fecha_vencimiento,
                 dias_anticipacion,
-                frecuencia
+                frecuencia,
+                tipo
             )
             VALUES
             (
@@ -653,7 +670,8 @@ def ejecutar_accion(resultado):
                 :monto,
                 :fecha_vencimiento,
                 :dias,
-                :frecuencia
+                :frecuencia,
+                :tipo
             )
             """,
             {
@@ -663,13 +681,160 @@ def ejecutar_accion(resultado):
                 "monto": monto,
                 "fecha_vencimiento": fecha_vencimiento,
                 "dias": dias_anticipacion,
-                "frecuencia": frecuencia
+                "frecuencia": frecuencia,
+                "tipo": tipo_recordatorio
             }
         )
 
+        if es_pago:
+
+            return (
+                f"🔔 Recordatorio creado: {descripcion} "
+                f"(${monto:,.2f}), vence {fecha_vencimiento}."
+            )
+
         return (
-            f"🔔 Recordatorio creado: {descripcion} "
-            f"(${monto:,.2f}), vence {fecha_vencimiento}."
+            f"📌 Pendiente anotado: {descripcion}, "
+            f"vence {fecha_vencimiento}."
         )
+
+    # =====================================
+    # REPETIR RESUMEN DEL DÍA
+    # =====================================
+
+    if accion == "REPETIR_RESUMEN":
+
+        from services.narrativa_service import generar_narrativa_ia
+        from services.billing_service import obtener_plan_actual
+
+        cuenta_id = st.session_state["cuenta_id"]
+
+        plan = obtener_plan_actual(cuenta_id)
+
+        usar_ia = bool(
+            plan is not None
+            and plan.get("incluye_ia", True)
+        )
+
+        return generar_narrativa_ia(cuenta_id, usar_ia=usar_ia)
+
+    # =====================================
+    # CONSULTA GENERAL (consejo, preguntas
+    # abiertas, cálculos, "¿me conviene...")
+    # =====================================
+
+    if accion == "CONSULTA_GENERAL":
+
+        from services.narrativa_service import (
+            calcular_datos_proyeccion
+        )
+        from services.currency_service import (
+            obtener_tipo_cambio_usd_mxn
+        )
+        from services.ai_client import (
+            get_openai_client,
+            get_deployment
+        )
+
+        cuenta_id = st.session_state["cuenta_id"]
+
+        pregunta = (
+            resultado.get("pregunta")
+            or resultado.get("texto_original")
+            or ""
+        )
+
+        contexto = calcular_datos_proyeccion(cuenta_id)
+
+        pregunta_lower = pregunta.lower()
+
+        menciona_dolar = any(
+            palabra in pregunta_lower
+            for palabra in (
+                "dolar", "dólar", "usd", "tipo de cambio",
+                "divisa", "moneda extranjera"
+            )
+        )
+
+        if menciona_dolar:
+
+            tipo_cambio = obtener_tipo_cambio_usd_mxn()
+
+            if tipo_cambio is not None:
+
+                contexto["tipo_cambio_usd_mxn_hoy"] = round(
+                    tipo_cambio["valor"], 2
+                )
+
+                contexto["tipo_cambio_actualizado"] = (
+                    tipo_cambio["fecha_actualizacion"]
+                )
+
+        prompt_sistema = (
+            "Eres el asistente financiero de Queda, hablando en "
+            "voz/texto con el usuario de forma conversacional. "
+            "Te doy un JSON de contexto con su situación "
+            "financiera actual (y el tipo de cambio USD/MXN de "
+            "hoy, SOLO si viene incluido) y su pregunta.\n\n"
+            "Reglas:\n"
+            "- Usa ÚNICAMENTE las cifras del contexto — nunca "
+            "inventes montos, tipo de cambio, ni datos que no "
+            "estén ahí.\n"
+            "- Si preguntan por el dólar y 'tipo_cambio_usd_mxn_hoy' "
+            "NO viene en el contexto, dilo honestamente en vez de "
+            "inventar un número.\n"
+            "- Si piden un cálculo (ahorro semanal, proyección, "
+            "etc.), hazlo tú mismo con las cifras que tengas y "
+            "muestra el resultado.\n"
+            "- Tono cálido, natural, en español de México, en "
+            "prosa corrida — nada de listas ni tablas.\n"
+            "- PROHIBIDO usar backticks, asteriscos o cualquier "
+            "símbolo de markdown.\n"
+            "- Máximo 5 líneas."
+        )
+
+        try:
+
+            client = get_openai_client()
+            deployment = get_deployment()
+
+            response = client.chat.completions.create(
+                model=deployment,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": prompt_sistema
+                    },
+                    {
+                        "role": "user",
+                        "content": (
+                            f"Contexto: "
+                            f"{json.dumps(contexto, ensure_ascii=False, default=str)}"
+                            f"\n\nPregunta: {pregunta}"
+                        )
+                    }
+                ],
+                temperature=0.4,
+                max_tokens=280
+            )
+
+            respuesta_texto = (
+                response.choices[0].message.content.strip()
+            )
+
+            respuesta_texto = (
+                respuesta_texto
+                .replace("`", "")
+                .replace("**", "")
+                .replace("*", "")
+            )
+
+            return respuesta_texto
+
+        except Exception as e:
+
+            return (
+                f"⚠ No pude generar una respuesta ahora mismo: {e}"
+            )
 
     return "⚠ Acción no reconocida"

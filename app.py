@@ -25,6 +25,7 @@ from services.usuario_service import (
 from auth.session import login_user
 from components.mic_wakeword import mic_wakeword
 from services.ui_theme import aplicar_tema
+from services.tts_service import texto_a_voz
 
 import extra_streamlit_components as stx
 
@@ -74,6 +75,30 @@ def _cerrar_sesion():
     st.session_state.clear()
 
     st.rerun()
+
+
+def _hablar_respuesta(texto):
+    """
+    Convierte la respuesta del asistente a voz y la reproduce —
+    para que de verdad "converse" contigo cuando le hablas, no
+    solo cuando entras a la app. Nunca debe romper el flujo si
+    Azure Speech falla (sin credenciales, sin cuota, etc.) — en
+    ese caso simplemente no se escucha nada, pero el mensaje de
+    texto ya se mostró de todas formas.
+    """
+
+    try:
+
+        archivo_audio = texto_a_voz(texto)
+
+        st.sidebar.audio(
+            archivo_audio,
+            format="audio/wav",
+            autoplay=True
+        )
+
+    except Exception:
+        pass
 
 # =====================================================
 # ESTADO GLOBAL
@@ -280,6 +305,10 @@ else:
                         respuesta_wakeword["mensaje"]
                     )
 
+                    _hablar_respuesta(
+                        respuesta_wakeword["mensaje"]
+                    )
+
                 elif (
                     respuesta_wakeword.get("tipo")
                     == "ERROR"
@@ -413,6 +442,10 @@ else:
                 ):
 
                     st.sidebar.success(
+                        respuesta["mensaje"]
+                    )
+
+                    _hablar_respuesta(
                         respuesta["mensaje"]
                     )
 
