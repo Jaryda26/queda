@@ -52,9 +52,14 @@ def _cerrar_sesion():
 
     if st.session_state.get("user_id"):
 
-        invalidar_token_sesion(
-            st.session_state["user_id"]
-        )
+        try:
+
+            invalidar_token_sesion(
+                st.session_state["user_id"]
+            )
+
+        except Exception:
+            pass
 
     cookie_manager.delete(
         "queda_token",
@@ -100,9 +105,20 @@ if "user_id" not in st.session_state:
 
     if token_guardado:
 
-        usuario_guardado = validar_token_sesion(
-            token_guardado
-        )
+        try:
+
+            usuario_guardado = validar_token_sesion(
+                token_guardado
+            )
+
+        except Exception:
+
+            # Si la base todavía no tiene las columnas de sesión
+            # persistente (falta correr sql/schema.sql), esto
+            # NUNCA debe tapar la pantalla de login — se ignora y
+            # sigue como si no hubiera cookie.
+
+            usuario_guardado = None
 
         if (
             usuario_guardado is not None

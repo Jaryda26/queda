@@ -59,20 +59,29 @@ def pantalla_login(cookie_manager):
 
                 # Sesión persistente: guarda un token en una
                 # cookie de 30 días para no pedir login otra vez
-                # cada que se cierra/reabre la pestaña.
+                # cada que se cierra/reabre la pestaña. Nunca debe
+                # bloquear el login en sí — si la base todavía no
+                # tiene las columnas de esta función (falta correr
+                # sql/schema.sql), simplemente no queda "recordado"
+                # esta vez, pero el login sigue funcionando.
 
-                token = crear_token_sesion(
-                    int(usuario["id"])
-                )
+                try:
 
-                cookie_manager.set(
-                    "queda_token",
-                    token,
-                    expires_at=(
-                        datetime.now() + timedelta(days=30)
-                    ),
-                    key="guardar_queda_token"
-                )
+                    token = crear_token_sesion(
+                        int(usuario["id"])
+                    )
+
+                    cookie_manager.set(
+                        "queda_token",
+                        token,
+                        expires_at=(
+                            datetime.now() + timedelta(days=30)
+                        ),
+                        key="guardar_queda_token"
+                    )
+
+                except Exception:
+                    pass
 
                 st.rerun()
 
