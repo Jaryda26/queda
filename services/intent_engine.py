@@ -1,3 +1,4 @@
+import re
 import unicodedata
 
 
@@ -15,6 +16,25 @@ def normalizar_texto(texto):
         for c in texto
         if unicodedata.category(c) != "Mn"
     )
+
+    # Azure Speech transcribe con puntuación natural ("Ya, cagó
+    # el águila." / "¿Ya cagó el águila?"), y esa puntuación
+    # rompía las comparaciones de texto exacto de abajo (una
+    # coma de más y "ya cago el aguila" deja de aparecer como
+    # substring). La quitamos aquí, antes de comparar cualquier
+    # cosa — así da igual cómo puntúe Azure la frase.
+
+    texto = re.sub(
+        r"[,.!?¡¿;:()\"']",
+        " ",
+        texto
+    )
+
+    texto = re.sub(
+        r"\s+",
+        " ",
+        texto
+    ).strip()
 
     reemplazos = {
 
@@ -42,6 +62,7 @@ def normalizar_texto(texto):
         )
 
     return texto
+
 
 
 def detectar_categoria(texto):
@@ -409,12 +430,18 @@ def detectar_intencion(texto):
 
         "ya cayo el aguila",
         "ya cayó el águila",
+        "cayo el aguila",
+        "cayó el águila",
 
         "ya cago el aguila",
         "ya cagó el águila",
+        "cago el aguila",
+        "cagó el águila",
 
         "ya chillo la marrana",
         "ya chilló la marrana",
+        "chillo la marrana",
+        "chilló la marrana",
 
         "ya cayo la quincena",
         "ya cayó la quincena",

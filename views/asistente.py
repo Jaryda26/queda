@@ -85,6 +85,30 @@ Pago de nómina 12000
   "monto":12000
 }
 
+Ya cagó el águila, 12000
+
+{
+  "accion":"REGISTRAR_INGRESO",
+  "concepto":"Nomina",
+  "origen_ingreso":"Nomina",
+  "monto":12000
+}
+
+Ya chilló la marrana, me depositaron 12000
+
+{
+  "accion":"REGISTRAR_INGRESO",
+  "concepto":"Nomina",
+  "origen_ingreso":"Nomina",
+  "monto":12000
+}
+
+IMPORTANTE: "ya cayó/cagó el águila", "ya chilló la marrana",
+"ya cayó la quincena/raya", "me cayó lana/una feria" son modismos
+mexicanos para "me pagaron/recibí dinero" — SIEMPRE son
+REGISTRAR_INGRESO, nunca REGISTRAR_GASTO, sin importar qué otras
+palabras traiga la frase.
+
 Ya pagué Sears
 
 {

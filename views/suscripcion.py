@@ -138,19 +138,51 @@ def pantalla_suscripcion():
                     f"miembro(s) · {plan['tipo_cuenta'].title()}"
                 )
 
-                if plan["incluye_ia"]:
-                    st.markdown("✅ Asistente IA (texto y voz)")
-                else:
-                    st.markdown("🔒 Sin Asistente IA")
+                st.markdown("&nbsp;", unsafe_allow_html=True)
 
-                if pd.isna(plan["limite_recordatorios"]):
-                    st.markdown("🔔 Recordatorios ilimitados")
-                else:
-                    st.markdown(
-                        f"🔔 Hasta "
-                        f"{int(plan['limite_recordatorios'])} "
-                        f"recordatorios activos"
+                caracteristicas = [
+                    (True, "Movimientos y presupuesto"),
+                    (True, "Historial y Dashboard"),
+                    (
+                        True,
+                        "Recordatorios ilimitados"
+                        if pd.isna(plan["limite_recordatorios"])
+                        else (
+                            f"Hasta "
+                            f"{int(plan['limite_recordatorios'])} "
+                            f"recordatorios activos"
+                        )
+                    ),
+                    (
+                        bool(plan["incluye_ia"]),
+                        "Asistente IA (texto y voz)"
+                    ),
+                    (
+                        bool(plan["incluye_ia"]),
+                        "Crear recordatorios hablando"
+                    ),
+                    (
+                        bool(plan["incluye_ia"]),
+                        "Proyección diaria con IA en Inicio"
+                    ),
+                    (
+                        plan["tipo_cuenta"] == "FAMILIAR",
+                        "Cuenta compartida con familia"
                     )
+                ]
+
+                for incluido, texto in caracteristicas:
+
+                    if incluido:
+                        st.markdown(f"✅ {texto}")
+                    else:
+                        st.markdown(
+                            f"<span style='color:#8A9B97'>"
+                            f"🔒 {texto}</span>",
+                            unsafe_allow_html=True
+                        )
+
+                st.markdown("&nbsp;", unsafe_allow_html=True)
 
                 es_plan_actual = (
                     tiene_activa

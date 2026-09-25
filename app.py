@@ -12,13 +12,21 @@ from views.historial import pantalla_historial
 from views.presupuesto import pantalla_presupuesto
 from views.recordatorios import pantalla_recordatorios
 from views.asistente import pantalla_asistente
-from views.voz import pantalla_voz
+from views.voz import pantalla_voz, procesar_texto_voz
 from views.aprendizaje import pantalla_aprendizaje
 from views.suscripcion import pantalla_suscripcion
 from views.cuenta import pantalla_cuenta
 
 from services.billing_service import tiene_suscripcion_activa
+from services.usuario_service import (
+    validar_token_sesion,
+    invalidar_token_sesion
+)
+from auth.session import login_user
+from components.mic_wakeword import mic_wakeword
 from services.ui_theme import aplicar_tema
+
+import extra_streamlit_components as stx
 
 
 st.set_page_config(
@@ -28,6 +36,34 @@ st.set_page_config(
 )
 
 aplicar_tema()
+
+cookie_manager = stx.CookieManager(
+    key="queda_cookie_manager"
+)
+
+
+def _cerrar_sesion():
+    """
+    Cierra sesión de verdad: borra el token guardado en la base
+    (para que la cookie vieja, si alguien la copia, ya no sirva)
+    y borra la cookie del navegador — no solo el session_state,
+    que de todas formas Streamlit reinicia solo.
+    """
+
+    if st.session_state.get("user_id"):
+
+        invalidar_token_sesion(
+            st.session_state["user_id"]
+        )
+
+    cookie_manager.delete(
+        "queda_token",
+        key="borrar_queda_token"
+    )
+
+    st.session_state.clear()
+
+    st.rerun()
 
 # =====================================================
 # ESTADO GLOBAL
@@ -46,6 +82,51 @@ if "debug_accion" not in st.session_state:
     st.session_state["debug_accion"] = ""
 
 # =====================================================
+# SESIÓN PERSISTENTE ("recuérdame")
+# =====================================================
+# Streamlit borra st.session_state cada vez que el navegador abre
+# una conexión nueva (cerrar/reabrir la pestaña, o a veces solo
+# navegar y volver) — por diseño no sobrevive eso. Para no pedir
+# login cada vez, guardamos un token en una cookie del navegador
+# (30 días) al iniciar sesión, y aquí, si no hay sesión activa
+# pero SÍ hay una cookie con un token válido, restauramos la
+# sesión sin pedir contraseña otra vez.
+
+if "user_id" not in st.session_state:
+
+    token_guardado = cookie_manager.get(
+        "queda_token"
+    )
+
+    if token_guardado:
+
+        usuario_guardado = validar_token_sesion(
+            token_guardado
+        )
+
+        if (
+            usuario_guardado is not None
+            and usuario_guardado.get("cuenta_id") is not None
+        ):
+
+            login_user(
+                int(usuario_guardado["id"]),
+                usuario_guardado["nombre"],
+                usuario_guardado["email"],
+                int(usuario_guardado["cuenta_id"]),
+                usuario_guardado.get(
+                    "rol_cuenta",
+                    "ADMIN"
+                ),
+                usuario_guardado.get(
+                    "nombre_agente",
+                    "Queda"
+                )
+            )
+
+            st.rerun()
+
+# =====================================================
 # LOGIN
 # =====================================================
 
@@ -60,7 +141,7 @@ if "user_id" not in st.session_state:
     )
 
     if opcion == "Login":
-        pantalla_login()
+        pantalla_login(cookie_manager)
     else:
         pantalla_registro()
 
@@ -97,9 +178,7 @@ else:
             use_container_width=True
         ):
 
-            st.session_state.clear()
-
-            st.rerun()
+            _cerrar_sesion()
 
         pantalla_suscripcion()
 
@@ -114,6 +193,91 @@ else:
         icon_name="microphone",
         icon_size="2x"
     )
+
+    # =====================================
+    # ACTIVACIÓN POR VOZ (beta) — nivel 1:
+    # escucha continua en el navegador, se
+    # activa diciendo el nombre elegido, y
+    # se corta sola al terminar de hablar.
+    # Solo funciona en Chrome/Edge/Safari
+    # (la Web Speech API no existe en
+    # Firefox) — por eso queda apagado por
+    # default y hay que prenderlo a mano.
+    # =====================================
+
+    activacion_voz = st.sidebar.toggle(
+        "🗣️ Activación por voz (beta)",
+        value=st.session_state.get(
+            "activacion_voz_encendida",
+            False
+        ),
+        help=(
+            "Solo funciona en Chrome, Edge o Safari. "
+            "Requiere dar permiso de micrófono una vez."
+        )
+    )
+
+    st.session_state[
+        "activacion_voz_encendida"
+    ] = activacion_voz
+
+    if activacion_voz:
+
+        resultado_wakeword = mic_wakeword(
+            nombre_activacion=st.session_state.get(
+                "nombre_agente",
+                "Queda"
+            ),
+            activo=True,
+            key="mic_wakeword"
+        )
+
+        if (
+            isinstance(resultado_wakeword, dict)
+            and resultado_wakeword.get("ts")
+            != st.session_state.get(
+                "ultimo_ts_wakeword"
+            )
+        ):
+
+            st.session_state[
+                "ultimo_ts_wakeword"
+            ] = resultado_wakeword["ts"]
+
+            try:
+
+                respuesta_wakeword = procesar_texto_voz(
+                    resultado_wakeword["texto"]
+                )
+
+                if (
+                    respuesta_wakeword.get("tipo")
+                    == "MENSAJE"
+                ):
+
+                    st.sidebar.success(
+                        respuesta_wakeword["mensaje"]
+                    )
+
+                elif (
+                    respuesta_wakeword.get("tipo")
+                    == "ERROR"
+                ):
+
+                    st.sidebar.error(
+                        respuesta_wakeword["mensaje"]
+                    )
+
+                if respuesta_wakeword.get("tipo") in (
+                    "MENSAJE",
+                    "ERROR"
+                ):
+
+                    st.rerun()
+
+            except Exception as e:
+
+                st.sidebar.error(str(e))
 
     # =====================================
     # PROCESAMIENTO DE VOZ
@@ -341,9 +505,7 @@ else:
         use_container_width=True
     ):
 
-        st.session_state.clear()
-
-        st.rerun()
+        _cerrar_sesion()
 
     paginas = {
 

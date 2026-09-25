@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+
+  body {
+    margin: 0;
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: transparent;
+  }
+
+  #estado {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background-color: #E6ECEB;
+    color: #1A2E2B;
+    font-size: 13px;
+    font-weight: 600;
+    box-sizing: border-box;
+  }
+
+  #punto {
+    width: 9px;
+    height: 9px;
+    min-width: 9px;
+    border-radius: 50%;
+    background-color: #C0392B;
+    transition: background-color 0.2s ease;
+  }
+
+  #punto.activo {
+    background-color: #0F9D8B;
+    box-shadow: 0 0 0 3px rgba(15, 157, 139, 0.2);
+  }
+
+</style>
+</head>
+<body>
+
+<div id="estado">
+  <div id="punto"></div>
+  <span id="texto_estado">Iniciando…</span>
+</div>
+
+<script>
+(function () {
+
+  var nombreActivacion = "queda";
+  var activacionEncendida = false;
+  var recognition = null;
+  var escuchandoComando = false;
+  var timeoutComando = null;
+
+  function normalizar(txt) {
+
+    return txt
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[.,!?¡¿;:]/g, "")
+      .trim();
+  }
+
+  function enviarValor(valor) {
+
+    window.parent.postMessage({
+      isStreamlitMessage: true,
+      type: "streamlit:setComponentValue",
+      value: valor
+    }, "*");
+  }
+
+  function marcarListo() {
+
+    window.parent.postMessage({
+      isStreamlitMessage: true,
+      type: "streamlit:componentReady",
+      apiVersion: 1
+    }, "*");
+  }
+
+  function fijarAltura() {
+
+    window.parent.postMessage({
+      isStreamlitMessage: true,
+      type: "streamlit:setFrameHeight",
+      height: 48
+    }, "*");
+  }
+
+  function actualizarEstado(texto, activo) {
+
+    document.getElementById("texto_estado").innerText = texto;
+
+    var punto = document.getElementById("punto");
+
+    if (activo) {
+      punto.classList.add("activo");
+    } else {
+      punto.classList.remove("activo");
+    }
+  }
+
+  function limpiarTimeoutComando() {
+
+    if (timeoutComando) {
+      clearTimeout(timeoutComando);
+      timeoutComando = null;
+    }
+  }
+
+  function fraseEspera() {
+
+    return "Di \"" + nombreActivacion + "\" para activarme";
+  }
+
+  function iniciarReconocimiento() {
+
+    var SpeechRecognition = (
+      window.SpeechRecognition || window.webkitSpeechRecognition
+    );
+
+    if (!SpeechRecognition) {
+
+      actualizarEstado(
+        "Tu navegador no soporta activación por voz " +
+        "(usa Chrome, Edge o Safari)",
+        false
+      );
+
+      return;
+    }
+
+    recognition = new SpeechRecognition();
+    recognition.lang = "es-MX";
+    recognition.continuous = true;
+    recognition.interimResults = false;
+
+    recognition.onstart = function () {
+
+      actualizarEstado(
+        escuchandoComando ? "Te escucho…" : fraseEspera(),
+        true
+      );
+    };
+
+    recognition.onresult = function (event) {
+
+      var ultimo = event.results[event.results.length - 1];
+
+      if (!ultimo.isFinal) {
+        return;
+      }
+
+      var transcripcion = ultimo[0].transcript;
+      var normalizado = normalizar(transcripcion);
+      var nombreNormalizado = normalizar(nombreActivacion);
+
+      if (escuchandoComando) {
+
+        // Ya se había activado antes — esto ES el comando.
+        limpiarTimeoutComando();
+        escuchandoComando = false;
+        actualizarEstado(fraseEspera(), true);
+        enviarValor({texto: transcripcion, ts: Date.now()});
+        return;
+      }
+
+      var idx = normalizado.indexOf(nombreNormalizado);
+
+      if (idx === -1) {
+        return;
+      }
+
+      var resto = transcripcion
+        .substring(idx + nombreActivacion.length)
+        .trim()
+        .replace(/^[,.:;!?]+/, "")
+        .trim();
+
+      if (resto.length > 0) {
+
+        // Dijo el nombre y el comando en la misma frase
+        // ("Queda, cuánto llevo gastado").
+        enviarValor({texto: resto, ts: Date.now()});
+
+      } else {
+
+        // Solo dijo el nombre — espera el comando en la
+        // siguiente frase (como "Alexa" ... "¿qué hora es?").
+        escuchandoComando = true;
+        actualizarEstado("Te escucho…", true);
+
+        timeoutComando = setTimeout(function () {
+          escuchandoComando = false;
+          actualizarEstado(fraseEspera(), true);
+        }, 8000);
+      }
+    };
+
+    recognition.onerror = function (event) {
+
+      if (
+        event.error === "not-allowed" ||
+        event.error === "service-not-allowed"
+      ) {
+
+        actualizarEstado("Permiso de micrófono denegado", false);
+      }
+
+      // "no-speech" / "network" / "aborted": se reinicia solo
+      // en onend, no hace falta hacer nada aquí.
+    };
+
+    recognition.onend = function () {
+
+      // El navegador corta el reconocimiento cada cierto tiempo
+      // aunque esté en modo "continuous" — lo reiniciamos para
+      // que la escucha nunca se quede apagada sola.
+
+      if (activacionEncendida) {
+
+        setTimeout(function () {
+
+          if (activacionEncendida) {
+            iniciarReconocimiento();
+          }
+        }, 300);
+      }
+    };
+
+    try {
+      recognition.start();
+    } catch (e) {
+      // ya estaba corriendo — se ignora
+    }
+  }
+
+  function detenerReconocimiento() {
+
+    if (recognition) {
+
+      try {
+        recognition.onend = null;
+        recognition.stop();
+      } catch (e) {}
+    }
+
+    actualizarEstado("Activación por voz apagada", false);
+  }
+
+  function alRecibirMensaje(event) {
+
+    if (!event.data || event.data.type !== "streamlit:render") {
+      return;
+    }
+
+    var args = event.data.args || {};
+
+    nombreActivacion = args.nombre_activacion || "queda";
+
+    var encender = !!args.activo;
+
+    if (encender && !activacionEncendida) {
+
+      activacionEncendida = true;
+      iniciarReconocimiento();
+
+    } else if (!encender && activacionEncendida) {
+
+      activacionEncendida = false;
+      detenerReconocimiento();
+    }
+
+    fijarAltura();
+  }
+
+  window.addEventListener("message", alRecibirMensaje);
+
+  marcarListo();
+  fijarAltura();
+  actualizarEstado("Esperando activarse…", false);
+
+})();
+</script>
+
+</body>
+</html>

@@ -1,11 +1,12 @@
 import streamlit as st
 import pandas as pd
+from datetime import datetime, timedelta
 
-from services.usuario_service import validar_usuario
+from services.usuario_service import validar_usuario, crear_token_sesion
 from auth.session import login_user
 
 
-def pantalla_login():
+def pantalla_login(cookie_manager):
 
     st.title("🔐 Login")
 
@@ -52,7 +53,25 @@ def pantalla_login():
                     usuario["nombre"],
                     usuario["email"],
                     int(cuenta_id),
-                    usuario.get("rol_cuenta", "ADMIN")
+                    usuario.get("rol_cuenta", "ADMIN"),
+                    usuario.get("nombre_agente", "Queda")
+                )
+
+                # Sesión persistente: guarda un token en una
+                # cookie de 30 días para no pedir login otra vez
+                # cada que se cierra/reabre la pestaña.
+
+                token = crear_token_sesion(
+                    int(usuario["id"])
+                )
+
+                cookie_manager.set(
+                    "queda_token",
+                    token,
+                    expires_at=(
+                        datetime.now() + timedelta(days=30)
+                    ),
+                    key="guardar_queda_token"
                 )
 
                 st.rerun()

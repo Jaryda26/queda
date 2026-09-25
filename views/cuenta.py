@@ -6,6 +6,7 @@ from services.cuenta_service import (
     unirse_a_cuenta
 )
 from services.billing_service import obtener_suscripcion
+from services.usuario_service import actualizar_nombre_agente
 
 
 def pantalla_cuenta():
@@ -24,6 +25,46 @@ def pantalla_cuenta():
         else "INDIVIDUAL"
     )
 
+    st.markdown("### Nombre de tu asistente")
+
+    st.caption(
+        "Así vas a activar la escucha por voz diciendo su nombre "
+        "— cámbialo por el que quieras (ej. \"Jarvis\", \"Ana\")."
+    )
+
+    col_nombre, col_boton = st.columns([3, 1])
+
+    with col_nombre:
+
+        nuevo_nombre = st.text_input(
+            "Nombre",
+            value=st.session_state.get("nombre_agente", "Queda"),
+            label_visibility="collapsed"
+        )
+
+    with col_boton:
+
+        if st.button("Guardar", use_container_width=True):
+
+            ok, mensaje = actualizar_nombre_agente(
+                st.session_state["user_id"],
+                nuevo_nombre
+            )
+
+            if ok:
+
+                st.session_state["nombre_agente"] = (
+                    nuevo_nombre.strip()
+                )
+
+                st.success(mensaje)
+                st.rerun()
+
+            else:
+
+                st.error(mensaje)
+
+    st.markdown("---")
     st.markdown("### Miembros")
 
     for _, m in miembros_df.iterrows():

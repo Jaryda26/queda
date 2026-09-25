@@ -91,6 +91,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_cuentas_codigo_invitacion ON gastos.cuentas
 
 ALTER TABLE gastos.usuarios ADD COLUMN IF NOT EXISTS cuenta_id INTEGER REFERENCES gastos.cuentas(id);
 ALTER TABLE gastos.usuarios ADD COLUMN IF NOT EXISTS rol_cuenta VARCHAR(20) DEFAULT 'ADMIN'; -- ADMIN | MIEMBRO
+ALTER TABLE gastos.usuarios ADD COLUMN IF NOT EXISTS nombre_agente VARCHAR(50) DEFAULT 'Queda'; -- palabra de activación por voz, elegida por el usuario
+ALTER TABLE gastos.usuarios ADD COLUMN IF NOT EXISTS token_sesion_hash VARCHAR(128); -- "recuérdame" — nunca se guarda el token en claro, solo su hash
+ALTER TABLE gastos.usuarios ADD COLUMN IF NOT EXISTS token_sesion_expira TIMESTAMP;
 
 ALTER TABLE gastos.movimientos ADD COLUMN IF NOT EXISTS cuenta_id INTEGER REFERENCES gastos.cuentas(id);
 ALTER TABLE gastos.presupuestos ADD COLUMN IF NOT EXISTS cuenta_id INTEGER REFERENCES gastos.cuentas(id);
