@@ -290,15 +290,21 @@ def _limpiar_formato(texto):
     )
 
 
-def _escapar_para_markdown(texto):
+def escapar_para_markdown(texto):
     """
     st.success()/st.markdown() interpretan cualquier texto entre
     dos signos $ como fórmula LaTeX — con varios montos en el
     mismo mensaje ("$7,101 ... $4,333 ... $1,300"), todo lo que
     queda ENTRE el primer y el segundo $ se renderiza como
     ecuación, con otra tipografía. Escapamos el $ como \\$ (así
-    se ve como texto plano) en el paso final, sin importar si el
-    texto vino de la IA o de la plantilla.
+    se ve como texto plano) — SOLO para mostrarlo en pantalla.
+
+    NO uses el resultado de esto para texto_a_voz(): Azure Speech
+    lee la barra invertida en voz alta ("barra invertida"), lo que
+    rompe el audio justo antes de cada monto. generar_narrativa_ia()
+    regresa el texto limpio (sin escapar) exactamente por esto —
+    ese es el que va a texto_a_voz(), y este escapado es solo para
+    st.success()/st.markdown().
     """
 
     return texto.replace("$", "\\$")
@@ -317,6 +323,10 @@ def generar_narrativa_ia(cuenta_id, usar_ia=True, datos=None):
     internet, cuota agotada, etc.) o si usar_ia=False (plan Básico,
     que no incluye IA), regresa la versión con plantillas usando
     los mismos datos — el saludo nunca se cae.
+
+    Regresa el texto SIN escapar — listo para texto_a_voz(). Para
+    mostrarlo en pantalla con st.success()/st.markdown(), pásalo
+    primero por escapar_para_markdown().
     """
 
     if datos is None:
@@ -362,4 +372,4 @@ def generar_narrativa_ia(cuenta_id, usar_ia=True, datos=None):
     if resultado is None:
         resultado = _narrativa_plantilla(datos)
 
-    return _escapar_para_markdown(resultado)
+    return resultado

@@ -1,5 +1,6 @@
 import tempfile
 import hashlib
+import re
 import streamlit as st
 
 from services.speech_service import speech_to_text
@@ -8,6 +9,29 @@ from services.action_engine import ejecutar_accion
 from services.billing_service import obtener_plan_actual
 
 from views.asistente import interpretar_movimiento
+
+
+def _extraer_monto_de_texto(texto):
+    """
+    Cuando la app pregunta '¿cuál fue el monto?' y la respuesta
+    viene por voz, Azure Speech la transcribe como texto libre
+    ('12000 pesos', '12,000', etc.) — a diferencia del Asistente
+    de texto, que puede asumir que el usuario tecleó solo el
+    número. Aquí sacamos el primer número que aparezca, ignorando
+    comas y palabras alrededor. Regresa None si no hay ninguno.
+    """
+
+    texto_limpio = texto.replace(",", "")
+
+    coincidencia = re.search(r"\d+(\.\d+)?", texto_limpio)
+
+    if not coincidencia:
+        return None
+
+    try:
+        return float(coincidencia.group(0))
+    except ValueError:
+        return None
 
 
 def pantalla_voz():
@@ -63,6 +87,61 @@ def pantalla_voz():
         st.session_state[
             "ultimo_texto_voz"
         ] = texto
+
+        # ===================================================
+        # ESPERANDO MONTO DE INGRESO
+        # ===================================================
+        # Si la vez pasada detectamos un ingreso sin monto (p. ej.
+        # "ya cayó el águila") y preguntamos "¿cuál fue el monto?",
+        # esta respuesta es la contestación a esa pregunta — NO
+        # debe pasar por detectar_intencion() ni por la IA como si
+        # fuera un mensaje nuevo. Este chequeo faltaba en voz (sí
+        # existía en el Asistente de texto), y por eso al contestar
+        # el monto por voz se registraba como gasto en vez de
+        # ingreso: sin este bloque, un número suelto como "12000"
+        # no matchea ninguna palabra clave y termina en la IA sin
+        # contexto de que era la respuesta a un ingreso pendiente.
+
+        if st.session_state.get(
+            "esperando_monto_ingreso",
+            False
+        ):
+
+            monto = _extraer_monto_de_texto(texto)
+
+            st.session_state["audio_global"] = None
+
+            if monto is None:
+
+                return {
+                    "tipo": "ERROR",
+                    "mensaje": (
+                        "⚠ No logré identificar el monto. Dime "
+                        "solo la cantidad, por ejemplo "
+                        "'12000 pesos'."
+                    )
+                }
+
+            resultado = {
+                "accion": "REGISTRAR_INGRESO",
+                "concepto": "Ingreso",
+                "origen_ingreso": "Ingreso",
+                "monto": monto,
+                "texto_original": texto
+            }
+
+            mensaje = ejecutar_accion(
+                resultado
+            )
+
+            st.session_state[
+                "esperando_monto_ingreso"
+            ] = False
+
+            return {
+                "tipo": "MENSAJE",
+                "mensaje": mensaje
+            }
 
         intencion = detectar_intencion(
             texto

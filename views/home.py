@@ -11,7 +11,8 @@ from services.tts_service import texto_a_voz
 from services.recordatorios_service import marcar_pagado
 from services.narrativa_service import (
     generar_narrativa_ia,
-    calcular_datos_proyeccion
+    calcular_datos_proyeccion,
+    escapar_para_markdown
 )
 from services.billing_service import obtener_plan_actual
 
@@ -190,7 +191,7 @@ def pantalla_home():
         datos=datos_proyeccion
     )
 
-    st.success(narrativa)
+    st.success(escapar_para_markdown(narrativa))
 
     # ====================================
     # VOZ DE BIENVENIDA
@@ -199,6 +200,13 @@ def pantalla_home():
     if "saludo_reproducido" not in st.session_state:
 
         try:
+
+            # OJO: texto_a_voz() recibe "narrativa" SIN escapar.
+            # Si le pasamos la versión con \$ (la del st.success de
+            # arriba), Azure Speech lee la barra invertida en voz
+            # alta ("barra invertida") y rompe el audio justo antes
+            # de cada monto — pasó en producción, quedó documentado
+            # en narrativa_service.escapar_para_markdown().
 
             archivo_audio = texto_a_voz(
                 narrativa
