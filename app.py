@@ -301,9 +301,13 @@ else:
                     == "MENSAJE"
                 ):
 
-                    st.sidebar.success(
-                        respuesta_wakeword["mensaje"]
-                    )
+                    st.session_state[
+                        "ultimo_mensaje_asistente"
+                    ] = respuesta_wakeword["mensaje"]
+
+                    st.session_state[
+                        "ultimo_mensaje_tipo"
+                    ] = "MENSAJE"
 
                     _hablar_respuesta(
                         respuesta_wakeword["mensaje"]
@@ -314,20 +318,32 @@ else:
                     == "ERROR"
                 ):
 
-                    st.sidebar.error(
-                        respuesta_wakeword["mensaje"]
-                    )
+                    st.session_state[
+                        "ultimo_mensaje_asistente"
+                    ] = respuesta_wakeword["mensaje"]
 
-                if respuesta_wakeword.get("tipo") in (
-                    "MENSAJE",
-                    "ERROR"
-                ):
+                    st.session_state[
+                        "ultimo_mensaje_tipo"
+                    ] = "ERROR"
 
-                    st.rerun()
+                # OJO: nunca forzar un st.rerun() aquí después de
+                # guardar el mensaje — eso era justo lo que hacía
+                # que "se viera el chat pero desapareciera": un
+                # rerun inmediato reinicia el script desde cero, y
+                # como el mensaje se mostraba con una llamada única
+                # (no guardada en session_state), desaparecía en el
+                # siguiente frame. Ahora se guarda y se muestra más
+                # abajo en cada rerun, así que persiste solo.
 
             except Exception as e:
 
-                st.sidebar.error(str(e))
+                st.session_state[
+                    "ultimo_mensaje_asistente"
+                ] = str(e)
+
+                st.session_state[
+                    "ultimo_mensaje_tipo"
+                ] = "ERROR"
 
     # =====================================
     # PROCESAMIENTO DE VOZ
@@ -441,9 +457,13 @@ else:
                     == "MENSAJE"
                 ):
 
-                    st.sidebar.success(
-                        respuesta["mensaje"]
-                    )
+                    st.session_state[
+                        "ultimo_mensaje_asistente"
+                    ] = respuesta["mensaje"]
+
+                    st.session_state[
+                        "ultimo_mensaje_tipo"
+                    ] = "MENSAJE"
 
                     _hablar_respuesta(
                         respuesta["mensaje"]
@@ -460,14 +480,47 @@ else:
                         "⚠ Audio ya procesado."
                     ):
 
-                        st.sidebar.error(
-                            respuesta["mensaje"]
-                        )
+                        st.session_state[
+                            "ultimo_mensaje_asistente"
+                        ] = respuesta["mensaje"]
+
+                        st.session_state[
+                            "ultimo_mensaje_tipo"
+                        ] = "ERROR"
 
         except Exception as e:
 
+            st.session_state[
+                "ultimo_mensaje_asistente"
+            ] = str(e)
+
+            st.session_state[
+                "ultimo_mensaje_tipo"
+            ] = "ERROR"
+
+    # =====================================
+    # ÚLTIMO MENSAJE DEL ASISTENTE
+    # =====================================
+    # Se guarda en session_state (no se muestra con una llamada
+    # única a st.sidebar.success/error) para que persista mientras
+    # navegas, en vez de desaparecer apenas algo más provoque un
+    # rerun.
+
+    if st.session_state.get("ultimo_mensaje_asistente"):
+
+        if (
+            st.session_state.get("ultimo_mensaje_tipo")
+            == "MENSAJE"
+        ):
+
+            st.sidebar.success(
+                st.session_state["ultimo_mensaje_asistente"]
+            )
+
+        else:
+
             st.sidebar.error(
-                str(e)
+                st.session_state["ultimo_mensaje_asistente"]
             )
 
     st.sidebar.markdown("---")

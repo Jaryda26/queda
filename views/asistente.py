@@ -5,6 +5,7 @@ import streamlit as st
 from db import obtener_dataframe
 
 from services.intent_engine import detectar_intencion
+from services.aprendizaje_service import buscar_frase_aprendida
 from services.action_engine import ejecutar_accion
 from services.ai_client import get_openai_client, get_deployment
 from services.billing_service import obtener_plan_actual
@@ -474,17 +475,18 @@ ${saldo:,.2f}
 
         try:
 
-            intencion = detectar_intencion(
+            intencion = buscar_frase_aprendida(
+                st.session_state["cuenta_id"],
                 texto
             )
 
-            if intencion and intencion["accion"] in [
-                "ABRIR_DASHBOARD",
-                "ABRIR_RECORDATORIOS",
-                "PAGAR_RECORDATORIO",
-                "POSPONER_RECORDATORIO",
-                "PREGUNTAR_MONTO_INGRESO"
-            ]:
+            if intencion is None:
+
+                intencion = detectar_intencion(
+                    texto
+                )
+
+            if intencion:
 
                 mensaje = ejecutar_accion(
                     intencion

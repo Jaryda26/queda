@@ -5,34 +5,16 @@ import difflib
 import streamlit as st
 
 from services.speech_service import speech_to_text
-from services.intent_engine import detectar_intencion
+from services.intent_engine import (
+    detectar_intencion,
+    extraer_monto_de_texto
+)
 from services.action_engine import ejecutar_accion
 from services.billing_service import obtener_plan_actual
+from services.aprendizaje_service import buscar_frase_aprendida
 
 from views.asistente import interpretar_movimiento
 
-
-def _extraer_monto_de_texto(texto):
-    """
-    Cuando la app pregunta '¿cuál fue el monto?' y la respuesta
-    viene por voz, Azure Speech la transcribe como texto libre
-    ('12000 pesos', '12,000', etc.) — a diferencia del Asistente
-    de texto, que puede asumir que el usuario tecleó solo el
-    número. Aquí sacamos el primer número que aparezca, ignorando
-    comas y palabras alrededor. Regresa None si no hay ninguno.
-    """
-
-    texto_limpio = texto.replace(",", "")
-
-    coincidencia = re.search(r"\d+(\.\d+)?", texto_limpio)
-
-    if not coincidencia:
-        return None
-
-    try:
-        return float(coincidencia.group(0))
-    except ValueError:
-        return None
 
 
 def _quitar_nombre_agente(texto):
@@ -133,7 +115,7 @@ def procesar_texto_voz(texto):
         False
     ):
 
-        monto = _extraer_monto_de_texto(texto)
+        monto = extraer_monto_de_texto(texto)
 
         st.session_state["audio_global"] = None
 
@@ -169,9 +151,21 @@ def procesar_texto_voz(texto):
             "mensaje": mensaje
         }
 
-    intencion = detectar_intencion(
+    # Primero se revisa si alguna frase que el usuario enseñó en
+    # 🧠 Aprendizaje aplica aquí — tiene prioridad sobre las
+    # palabras clave de fábrica. Si no hay ninguna coincidencia,
+    # sigue el motor de reglas normal.
+
+    intencion = buscar_frase_aprendida(
+        st.session_state["cuenta_id"],
         texto
     )
+
+    if intencion is None:
+
+        intencion = detectar_intencion(
+            texto
+        )
 
     if intencion:
 

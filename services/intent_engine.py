@@ -2,6 +2,28 @@ import re
 import unicodedata
 
 
+def extraer_monto_de_texto(texto):
+    """
+    Saca el primer número que aparezca en un texto libre ('12000
+    pesos', '12,000', etc.), ignorando comas y palabras alrededor.
+    Regresa None si no hay ninguno. Se usa tanto para la respuesta
+    a "¿cuál fue el monto?" como para frases aprendidas en
+    Aprendizaje que no traen su monto en la plantilla.
+    """
+
+    texto_limpio = texto.replace(",", "")
+
+    coincidencia = re.search(r"\d+(\.\d+)?", texto_limpio)
+
+    if not coincidencia:
+        return None
+
+    try:
+        return float(coincidencia.group(0))
+    except ValueError:
+        return None
+
+
 def normalizar_texto(texto):
 
     texto = texto.lower().strip()
@@ -395,7 +417,29 @@ def detectar_intencion(texto):
         "quedó pagado",
         "liquide",
         "liquidé",
-        "liquidado"
+        "liquidado",
+
+        "ya termine",
+        "ya terminé",
+        "termine con",
+        "terminé con",
+        "ya hice",
+        "ya lo hice",
+        "ya quedo",
+        "ya quedó",
+        "quedo listo",
+        "quedó listo",
+        "esta listo",
+        "está listo",
+        "complete",
+        "completé",
+        "ya lo complete",
+        "ya lo completé",
+        "resuelto",
+        "ya lo resolvi",
+        "ya lo resolví",
+        "ya tramite",
+        "ya tramité"
     ]
 
     for palabra in pagos:

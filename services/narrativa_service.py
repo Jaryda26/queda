@@ -162,18 +162,29 @@ def calcular_datos_proyeccion(cuenta_id):
         # proyección financiera del día — una actividad (un
         # trámite, un cumpleaños) no tiene monto y no tiene
         # sentido calcularle "cuánto te va a sobrar".
+        #
+        # Si la base todavía no tiene la columna "tipo" (falta
+        # correr sql/schema.sql), esto no debe tumbar Inicio —
+        # cae de vuelta a considerar todos los recordatorios,
+        # como antes de que existiera esta distinción.
 
-        pagos_df = obtener_dataframe(
-            """
-            SELECT descripcion, monto, fecha_vencimiento
-            FROM gastos.recordatorios
-            WHERE cuenta_id = :cuenta_id
-            AND pagado = FALSE
-            AND tipo = 'PAGO'
-            ORDER BY fecha_vencimiento
-            """,
-            {"cuenta_id": cuenta_id}
-        )
+        try:
+
+            pagos_df = obtener_dataframe(
+                """
+                SELECT descripcion, monto, fecha_vencimiento
+                FROM gastos.recordatorios
+                WHERE cuenta_id = :cuenta_id
+                AND pagado = FALSE
+                AND tipo = 'PAGO'
+                ORDER BY fecha_vencimiento
+                """,
+                {"cuenta_id": cuenta_id}
+            )
+
+        except Exception:
+
+            pagos_df = recordatorios_df
 
         if not pagos_df.empty:
 
