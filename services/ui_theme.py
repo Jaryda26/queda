@@ -54,13 +54,19 @@ def aplicar_tema():
            matemáticamente en el verde oscuro exacto de la barra
            lateral (#0F3D37) — lo calculé, no es a ojo. Los colores
            del ícono en app.py están ajustados para que, DESPUÉS de
-           este filtro, se vean en el verde azulado/rojo correctos.
-           Se apunta por iframe[title=...] (el nombre que Streamlit
-           le da a cada componente) para no afectar el indicador de
-           activación por voz, que ya tiene sus propios colores
-           oscuros correctos y no necesita este truco. */
+           este filtro, se vean en el verde azulado y rojo correctos.
 
-        section[data-testid="stSidebar"] iframe[title="audio_recorder"] {
+           El selector usa [title*="audio_recorder"] (coincidencia
+           parcial) porque Streamlit registra el título del iframe
+           como "<módulo>.<nombre>" (confirmado en vivo:
+           "audio_recorder_streamlit.audio_recorder", no solo
+           "audio_recorder" como parecía razonable a primera vista)
+           — con coincidencia parcial no importa el prefijo exacto,
+           y no afecta al indicador de activación por voz (otro
+           iframe, con título distinto), que ya tiene sus propios
+           colores oscuros correctos y no necesita este truco. */
+
+        section[data-testid="stSidebar"] iframe[title*="audio_recorder"] {
             filter: invert(1) hue-rotate(180deg);
             border-radius: 12px;
         }
