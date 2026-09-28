@@ -44,13 +44,36 @@ def aplicar_tema():
             border-color: #2A8577;
         }
 
-        /* Los componentes (iframes) de la barra lateral —el micrófono y
-           el indicador de voz— deben verse integrados con su fondo,
-           no como cajas grises pegadas. */
-        section[data-testid="stSidebar"] iframe {
-            background-color: transparent;
+        /* El micrófono (audio_recorder_streamlit) es un paquete de
+           terceros: dibuja su iframe con fondo blanco por dentro
+           (lo trae Bootstrap embebido), y eso NO se puede tocar con
+           background-color desde afuera — el contenido de un
+           iframe vive en su propio documento, aislado del nuestro.
+           Lo único que sí atraviesa esa frontera es "filter": con
+           invert(1) hue-rotate(180deg), un fondo blanco se convierte
+           matemáticamente en el verde oscuro exacto de la barra
+           lateral (#0F3D37) — lo calculé, no es a ojo. Los colores
+           del ícono en app.py están ajustados para que, DESPUÉS de
+           este filtro, se vean en el verde azulado/rojo correctos.
+           Se apunta por iframe[title=...] (el nombre que Streamlit
+           le da a cada componente) para no afectar el indicador de
+           activación por voz, que ya tiene sus propios colores
+           oscuros correctos y no necesita este truco. */
+
+        section[data-testid="stSidebar"] iframe[title="audio_recorder"] {
+            filter: invert(1) hue-rotate(180deg);
             border-radius: 12px;
-            color-scheme: dark;
+        }
+
+        /* El reproductor de audio (st.audio) de las respuestas
+           habladas es nativo, no un iframe — pero sus controles
+           también son un widget del navegador con fondo blanco que
+           no se puede repintar con CSS normal. Mismo truco. */
+
+        section[data-testid="stSidebar"] audio {
+            filter: invert(1) hue-rotate(180deg);
+            border-radius: 20px;
+            width: 100%;
         }
 
         section[data-testid="stSidebar"] [role="radiogroup"] label {

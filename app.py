@@ -248,8 +248,8 @@ else:
 
         audio_bytes = audio_recorder(
             text="",
-            recording_color="#e74c3c",
-            neutral_color="#19B5A0",
+            recording_color="#FF6941",
+            neutral_color="#008C82",
             icon_name="microphone",
             icon_size="5x"
         )
