@@ -116,11 +116,35 @@ def buscar_frase_aprendida(cuenta_id, texto):
                 "monto": monto or 0
             }
 
-        if accion in ("PAGAR_RECORDATORIO", "POSPONER_RECORDATORIO"):
+        if accion in (
+            "PAGAR_RECORDATORIO",
+            "TERMINAR_ACTIVIDAD",
+            "POSPONER_RECORDATORIO"
+        ):
+
+            # "Terminar actividad" ejecuta lo mismo que pagar:
+            # cierra el recordatorio (si es de tipo PAGO además
+            # registra el gasto; si es una ACTIVIDAD solo lo marca
+            # hecho, sin mover dinero).
+            if accion == "TERMINAR_ACTIVIDAD":
+                accion = "PAGAR_RECORDATORIO"
+
+            # Si no indicó qué recordatorio afecta, se toma lo que
+            # sobra de lo que dijo después de quitar las palabras
+            # de la frase enseñada ("ya quedó" + "Sears" -> "sears").
+            if categoria:
+                objetivo = categoria
+            else:
+                palabras_frase = set(frase_normalizada.split())
+                sobrantes = [
+                    p for p in texto_normalizado.split()
+                    if p not in palabras_frase
+                ]
+                objetivo = " ".join(sobrantes) or str(fila["frase"])
 
             return {
                 "accion": accion,
-                "descripcion": categoria or str(fila["frase"])
+                "descripcion": objetivo
             }
 
     return None

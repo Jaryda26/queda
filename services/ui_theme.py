@@ -44,6 +44,15 @@ def aplicar_tema():
             border-color: #2A8577;
         }
 
+        /* Los componentes (iframes) de la barra lateral —el micrófono y
+           el indicador de voz— deben verse integrados con su fondo,
+           no como cajas grises pegadas. */
+        section[data-testid="stSidebar"] iframe {
+            background-color: transparent;
+            border-radius: 12px;
+            color-scheme: dark;
+        }
+
         section[data-testid="stSidebar"] [role="radiogroup"] label {
             border-radius: 8px;
             padding: 2px 6px;

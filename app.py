@@ -249,7 +249,7 @@ else:
         audio_bytes = audio_recorder(
             text="",
             recording_color="#e74c3c",
-            neutral_color="#2c3e50",
+            neutral_color="#19B5A0",
             icon_name="microphone",
             icon_size="5x"
         )
@@ -324,6 +324,10 @@ else:
                     st.session_state[
                         "ultimo_mensaje_tipo"
                     ] = "MENSAJE"
+
+                    # Aviso emergente: si la barra lateral está cerrada, el globo
+                    # de respuesta queda oculto — esto sí se ve siempre.
+                    st.toast(respuesta_wakeword["mensaje"], icon="💬")
 
                     _hablar_respuesta(
                         respuesta_wakeword["mensaje"]
@@ -480,6 +484,10 @@ else:
                     st.session_state[
                         "ultimo_mensaje_tipo"
                     ] = "MENSAJE"
+
+                    # Aviso emergente: si la barra lateral está cerrada, el globo
+                    # de respuesta queda oculto — esto sí se ve siempre.
+                    st.toast(respuesta["mensaje"], icon="💬")
 
                     _hablar_respuesta(
                         respuesta["mensaje"]

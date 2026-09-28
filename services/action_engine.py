@@ -4,6 +4,7 @@ from datetime import datetime
 
 from db import ejecutar_query
 from db import obtener_dataframe
+from services.intent_engine import normalizar_texto
 from services.recordatorios_service import (
     marcar_pagado,
     puede_agregar_recordatorio
@@ -45,6 +46,44 @@ def _resolver_fecha_movimiento(resultado):
             " (no logré interpretar la fecha que mencionaste, "
             "se guardó con la fecha de hoy)"
         )
+
+
+def _buscar_recordatorios(recordatorios, descripcion):
+    """
+    Busca recordatorios cuya descripción corresponda a lo que dijo
+    el usuario, ignorando acentos y mayúsculas en AMBOS lados.
+
+    Antes se comparaba el texto ya sin acentos ("tramite") contra
+    la descripción guardada CON acentos ("Trámite"), así que
+    cualquier recordatorio con acento nunca se encontraba. Además
+    str.contains() trataba el texto como expresión regular.
+
+    Coincide si el texto dicho aparece completo dentro de la
+    descripción, o si todas sus palabras aparecen (en cualquier
+    orden) — así "comprar pastel" encuentra "Comprar un pastel".
+    """
+
+    buscado = normalizar_texto(descripcion)
+
+    if not buscado:
+        return recordatorios.iloc[0:0]
+
+    palabras = buscado.split()
+
+    def coincide(descripcion_guardada):
+
+        guardada = normalizar_texto(str(descripcion_guardada))
+
+        if buscado in guardada:
+            return True
+
+        palabras_guardada = guardada.split()
+
+        return all(p in palabras_guardada for p in palabras)
+
+    mascara = recordatorios["descripcion"].apply(coincide)
+
+    return recordatorios[mascara]
 
 
 def ejecutar_accion(resultado):
@@ -249,14 +288,10 @@ def ejecutar_accion(resultado):
                 "⚠ No existen recordatorios pendientes."
             )
 
-        coincidencia = recordatorios[
-            recordatorios["descripcion"]
-            .str.upper()
-            .str.contains(
-                descripcion.upper(),
-                na=False
-            )
-        ]
+        coincidencia = _buscar_recordatorios(
+            recordatorios,
+            descripcion
+        )
 
         if coincidencia.empty:
 
@@ -311,14 +346,10 @@ def ejecutar_accion(resultado):
                 "⚠ No existen recordatorios pendientes."
             )
 
-        coincidencia = recordatorios[
-            recordatorios["descripcion"]
-            .str.upper()
-            .str.contains(
-                descripcion.upper(),
-                na=False
-            )
-        ]
+        coincidencia = _buscar_recordatorios(
+            recordatorios,
+            descripcion
+        )
 
         if coincidencia.empty:
 
