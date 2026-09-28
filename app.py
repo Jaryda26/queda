@@ -89,7 +89,10 @@ def _hablar_respuesta(texto):
 
     try:
 
-        archivo_audio = texto_a_voz(texto)
+        archivo_audio = texto_a_voz(
+            texto,
+            voz=st.session_state.get("voz_agente", "femenina")
+        )
 
         st.sidebar.audio(
             archivo_audio,
@@ -167,6 +170,10 @@ if "user_id" not in st.session_state:
                 usuario_guardado.get(
                     "nombre_agente",
                     "Queda"
+                ),
+                usuario_guardado.get(
+                    "voz_agente",
+                    "femenina"
                 )
             )
 
@@ -232,13 +239,20 @@ else:
 
     st.sidebar.markdown("### 🎤 Queda")
 
-    audio_bytes = audio_recorder(
-        text="",
-        recording_color="#e74c3c",
-        neutral_color="#2c3e50",
-        icon_name="microphone",
-        icon_size="5x"
-    )
+    # El micrófono vive DENTRO de la barra lateral (with st.sidebar)
+    # — antes se dibujaba en el área principal, arriba de la página,
+    # y se iba con el scroll. La barra lateral se queda fija en
+    # pantalla mientras te desplazas por el contenido.
+
+    with st.sidebar:
+
+        audio_bytes = audio_recorder(
+            text="",
+            recording_color="#e74c3c",
+            neutral_color="#2c3e50",
+            icon_name="microphone",
+            icon_size="5x"
+        )
 
     # =====================================
     # ACTIVACIÓN POR VOZ (beta) — nivel 1:
@@ -269,14 +283,16 @@ else:
 
     if activacion_voz:
 
-        resultado_wakeword = mic_wakeword(
-            nombre_activacion=st.session_state.get(
-                "nombre_agente",
-                "Queda"
-            ),
-            activo=True,
-            key="mic_wakeword"
-        )
+        with st.sidebar:
+
+            resultado_wakeword = mic_wakeword(
+                nombre_activacion=st.session_state.get(
+                    "nombre_agente",
+                    "Queda"
+                ),
+                activo=True,
+                key="mic_wakeword"
+            )
 
         if (
             isinstance(resultado_wakeword, dict)

@@ -95,6 +95,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_cuentas_codigo_invitacion ON gastos.cuentas
 ALTER TABLE gastos.usuarios ADD COLUMN IF NOT EXISTS cuenta_id INTEGER REFERENCES gastos.cuentas(id);
 ALTER TABLE gastos.usuarios ADD COLUMN IF NOT EXISTS rol_cuenta VARCHAR(20) DEFAULT 'ADMIN'; -- ADMIN | MIEMBRO
 ALTER TABLE gastos.usuarios ADD COLUMN IF NOT EXISTS nombre_agente VARCHAR(50) DEFAULT 'Queda'; -- palabra de activación por voz, elegida por el usuario
+ALTER TABLE gastos.usuarios ADD COLUMN IF NOT EXISTS voz_agente VARCHAR(20) DEFAULT 'femenina'; -- femenina | masculina — voz de Azure Speech para las respuestas habladas
 ALTER TABLE gastos.usuarios ADD COLUMN IF NOT EXISTS token_sesion_hash VARCHAR(128); -- "recuérdame" — nunca se guarda el token en claro, solo su hash
 ALTER TABLE gastos.usuarios ADD COLUMN IF NOT EXISTS token_sesion_expira TIMESTAMP;
 
@@ -109,7 +110,7 @@ CREATE INDEX IF NOT EXISTS idx_presupuestos_cuenta ON gastos.presupuestos(cuenta
 CREATE INDEX IF NOT EXISTS idx_recordatorios_cuenta ON gastos.recordatorios(cuenta_id);
 
 -- Catálogo de planes. precio_centavos está en centavos de MXN
--- (1000 = $10.00) para evitar errores de redondeo con floats.
+-- (2500 = $25.00) para evitar errores de redondeo con floats.
 -- stripe_price_id lo llenas tú desde el Dashboard de Stripe
 -- (Producto → Precio) — cambiar el precio ahí NO requiere tocar
 -- código, solo actualizar esta fila.
@@ -139,7 +140,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_planes_slug ON gastos.planes(slug);
 
 INSERT INTO gastos.planes (slug, nombre, tipo_cuenta, precio_centavos, limite_miembros, stripe_price_id)
 VALUES
- ('basico', 'Básico', 'INDIVIDUAL', 1000, 1, 'price_PENDIENTE_BASICO'),
+ ('basico', 'Básico', 'INDIVIDUAL', 2500, 1, 'price_PENDIENTE_BASICO'),
  ('individual', 'Individual', 'INDIVIDUAL', 4900, 1, 'price_PENDIENTE_INDIVIDUAL'),
  ('familiar', 'Familiar', 'FAMILIAR', 9900, 5, 'price_PENDIENTE_FAMILIAR')
 ON CONFLICT (slug) DO NOTHING;
@@ -154,6 +155,11 @@ ON CONFLICT (slug) DO NOTHING;
 --   generada con IA en Inicio, sin tope de recordatorios.
 -- - Familiar: todo lo de Individual + hasta 5 miembros compartiendo
 --   la misma cuenta.
+-- Precio mínimo: $25 MXN/mes (2500 centavos). Con UPDATE (no solo el INSERT de arriba)
+-- para que también aplique si el plan ya existía con el precio anterior.
+-- OJO: el precio que COBRA Stripe sale del Price que creaste allá — si ya
+-- creaste el de $10, crea uno nuevo de $25 y pega su price_id en stripe_price_id.
+UPDATE gastos.planes SET precio_centavos = 2500 WHERE slug = 'basico';
 UPDATE gastos.planes SET limite_recordatorios = 5, incluye_ia = FALSE WHERE slug = 'basico';
 UPDATE gastos.planes SET limite_recordatorios = NULL, incluye_ia = TRUE WHERE slug = 'individual';
 UPDATE gastos.planes SET limite_recordatorios = NULL, incluye_ia = TRUE WHERE slug = 'familiar';

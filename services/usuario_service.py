@@ -218,6 +218,23 @@ def actualizar_nombre_agente(usuario_id, nombre_agente):
     return True, f"Listo — ahora se llama {nombre_limpio}."
 
 
+def actualizar_voz_agente(usuario_id, voz_agente):
+
+    if voz_agente not in ("femenina", "masculina"):
+        return False, "Elige una voz válida."
+
+    ejecutar_query(
+        """
+        UPDATE gastos.usuarios
+        SET voz_agente = :voz
+        WHERE id = :usuario_id
+        """,
+        {"voz": voz_agente, "usuario_id": usuario_id}
+    )
+
+    return True, "Listo — voz actualizada."
+
+
 def validar_usuario(email, password):
 
     email_normalizado = email.strip().lower()

@@ -193,11 +193,7 @@ def detectar_intencion(texto):
         "dashboard",
         "estadisticas",
         "estadísticas",
-        "como voy",
-        "cómo voy",
         "mis gastos",
-        "mi resumen",
-        "resumen",
         "cuanto me queda",
         "cuánto me queda"
     ]
@@ -296,8 +292,10 @@ def detectar_intencion(texto):
     asistente = [
 
         "asistente",
-        "ia",
-        "inteligencia artificial"
+        "inteligencia artificial",
+        "modo ia",
+        "abre la ia",
+        "abre el asistente"
     ]
 
     for palabra in asistente:
@@ -365,13 +363,28 @@ def detectar_intencion(texto):
         "repiteme el resumen",
         "repíteme el resumen",
         "dame el resumen",
+        "dame el resumen del dia",
+        "dame el resumen del día",
+        "dame mi resumen",
+        "mi resumen",
+        "resumen",
         "dame el contexto",
         "cual es mi resumen",
         "cuál es mi resumen",
         "recuerdame mi situacion",
         "recuérdame mi situación",
         "como voy",
-        "cómo voy"
+        "cómo voy",
+        "cuales son mis pendientes",
+        "cuáles son mis pendientes",
+        "cuales son las actividades",
+        "cuáles son las actividades",
+        "que actividades tengo",
+        "qué actividades tengo",
+        "mis pendientes del dia",
+        "mis pendientes del día",
+        "mis actividades del dia",
+        "mis actividades del día"
     ]
 
     for palabra in resumen:
@@ -423,23 +436,58 @@ def detectar_intencion(texto):
         "ya terminé",
         "termine con",
         "terminé con",
-        "ya hice",
+        "termina la actividad de",
+        "termina la actividad",
+        "termina con",
+        "termina",
+        "termino",
+        "terminó",
         "ya lo hice",
+        "ya hice",
         "ya quedo",
         "ya quedó",
         "quedo listo",
         "quedó listo",
         "esta listo",
         "está listo",
-        "complete",
-        "completé",
+        "ya esta hecho",
+        "ya está hecho",
+        "dale hecho a",
+        "dale por hecho",
+        "dalo por hecho",
         "ya lo complete",
         "ya lo completé",
+        "ya complete",
+        "ya completé",
+        "complete",
+        "completé",
         "resuelto",
         "ya lo resolvi",
         "ya lo resolví",
         "ya tramite",
-        "ya tramité"
+        "ya tramité",
+        "ya se realizo",
+        "ya se realizó",
+        "se realizo",
+        "se realizó"
+    ]
+
+    # Palabras de relleno que suelen quedar pegadas a la
+    # descripción después de quitar la frase disparadora (ej.
+    # "termina LA ACTIVIDAD DE comprar un pastel" → sin esto,
+    # la búsqueda no encuentra el recordatorio "Comprar un
+    # pastel" porque le sobra "la actividad de" al inicio).
+
+    relleno_descripcion = [
+        "la actividad de",
+        "la actividad",
+        "el recordatorio de",
+        "el recordatorio",
+        "el pendiente de",
+        "el pendiente",
+        "la tarea de",
+        "la tarea",
+        "lo de"
     ]
 
     for palabra in pagos:
@@ -454,6 +502,18 @@ def detectar_intencion(texto):
                     p,
                     ""
                 )
+
+            descripcion = descripcion.strip()
+
+            for relleno in relleno_descripcion:
+
+                if descripcion.startswith(relleno):
+
+                    descripcion = descripcion[
+                        len(relleno):
+                    ].strip()
+
+                    break
 
             return {
                 "accion": "PAGAR_RECORDATORIO",

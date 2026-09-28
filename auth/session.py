@@ -7,7 +7,8 @@ def login_user(
     email,
     cuenta_id,
     rol_cuenta,
-    nombre_agente="Queda"
+    nombre_agente="Queda",
+    voz_agente="femenina"
 ):
 
     st.session_state["user_id"] = usuario_id
@@ -18,4 +19,7 @@ def login_user(
     st.session_state["rol_cuenta"] = rol_cuenta
     st.session_state["nombre_agente"] = (
         nombre_agente or "Queda"
+    )
+    st.session_state["voz_agente"] = (
+        voz_agente or "femenina"
     )

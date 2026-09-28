@@ -6,7 +6,10 @@ from services.cuenta_service import (
     unirse_a_cuenta
 )
 from services.billing_service import obtener_suscripcion
-from services.usuario_service import actualizar_nombre_agente
+from services.usuario_service import (
+    actualizar_nombre_agente,
+    actualizar_voz_agente
+)
 
 
 def pantalla_cuenta():
@@ -63,6 +66,42 @@ def pantalla_cuenta():
             else:
 
                 st.error(mensaje)
+
+    st.markdown("### Voz de tu asistente")
+
+    voz_actual = st.session_state.get("voz_agente", "femenina")
+
+    opciones_voz = ["femenina", "masculina"]
+
+    voz_elegida = st.radio(
+        "Voz",
+        opciones_voz,
+        index=(
+            opciones_voz.index(voz_actual)
+            if voz_actual in opciones_voz else 0
+        ),
+        format_func=lambda v: (
+            "👩 Femenina" if v == "femenina" else "👨 Masculina"
+        ),
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+
+    if voz_elegida != voz_actual:
+
+        ok_voz, mensaje_voz = actualizar_voz_agente(
+            st.session_state["user_id"],
+            voz_elegida
+        )
+
+        if ok_voz:
+
+            st.session_state["voz_agente"] = voz_elegida
+            st.success(mensaje_voz)
+
+        else:
+
+            st.error(mensaje_voz)
 
     st.markdown("---")
     st.markdown("### Miembros")

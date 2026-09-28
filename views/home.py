@@ -209,7 +209,11 @@ def pantalla_home():
             # en narrativa_service.escapar_para_markdown().
 
             archivo_audio = texto_a_voz(
-                narrativa
+                narrativa,
+                voz=st.session_state.get(
+                    "voz_agente",
+                    "femenina"
+                )
             )
 
             st.audio(

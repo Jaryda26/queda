@@ -54,7 +54,8 @@ def pantalla_login(cookie_manager):
                     usuario["email"],
                     int(cuenta_id),
                     usuario.get("rol_cuenta", "ADMIN"),
-                    usuario.get("nombre_agente", "Queda")
+                    usuario.get("nombre_agente", "Queda"),
+                    usuario.get("voz_agente", "femenina")
                 )
 
                 # Sesión persistente: guarda un token en una
