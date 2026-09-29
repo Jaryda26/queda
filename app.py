@@ -42,6 +42,30 @@ cookie_manager = stx.CookieManager(
     key="queda_cookie_manager"
 )
 
+st.markdown(
+    """
+<style>
+
+/* Móvil */
+
+@media (max-width: 768px){
+
+    section[data-testid="stSidebar"]{
+        width:260px !important;
+    }
+
+    .block-container{
+        padding-top:1rem;
+        padding-left:1rem;
+        padding-right:1rem;
+    }
+
+}
+
+</style>
+""",
+    unsafe_allow_html=True
+)
 
 def _cerrar_sesion():
     """
