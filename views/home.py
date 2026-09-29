@@ -306,14 +306,7 @@ def pantalla_home():
     # RENDERIZAR TARJETAS EN HORIZONTAL
     # ====================================
 
-    TARJETAS_POR_FILA = (
-        1
-        if st.session_state.get(
-            "es_movil",
-            False
-        )
-        else 3
-    )
+    TARJETAS_POR_FILA = 3
 
     for i in range(0, len(tarjetas), TARJETAS_POR_FILA):
 

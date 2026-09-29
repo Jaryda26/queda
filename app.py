@@ -35,12 +35,6 @@ st.set_page_config(
     page_icon="💰",
     layout="wide"
 )
-st.session_state["es_movil"] = (
-    st.query_params.get(
-        "mobile",
-        "0"
-    ) == "1"
-)
 
 aplicar_tema()
 
@@ -48,46 +42,6 @@ cookie_manager = stx.CookieManager(
     key="queda_cookie_manager"
 )
 
-st.markdown(
-    """
-<style>
-
-/* Móvil */
-@media (max-width: 768px){
-
-    section[data-testid="stSidebar"]{
-        width:260px !important;
-    }
-
-    .block-container{
-        padding-top:0.5rem !important;
-        padding-left:0.7rem !important;
-        padding-right:0.7rem !important;
-        padding-bottom:1rem !important;
-    }
-
-    div[data-testid="stMetric"]{
-        padding:4px !important;
-    }
-
-    button[kind="secondary"]{
-        width:100%;
-    }
-}
-
-/* Tablet */
-@media (max-width: 1024px){
-
-    .block-container{
-        padding-left:1rem !important;
-        padding-right:1rem !important;
-    }
-}
-
-</style>
-""",
-    unsafe_allow_html=True
-)
 
 def _cerrar_sesion():
     """
@@ -254,11 +208,8 @@ else:
 
     st.sidebar.success(
         st.session_state.get(
-            "nombre_corto",
-            st.session_state.get(
-                "nombre",
-                ""
-            )
+            "nombre",
+            ""
         )
     )
 
@@ -297,10 +248,10 @@ else:
 
         audio_bytes = audio_recorder(
             text="",
-            recording_color="#FF6941",
-            neutral_color="#008C82",
+            recording_color="#00D9D2",
+            neutral_color="#E13955",
             icon_name="microphone",
-            icon_size="4x"
+            icon_size="5x"
         )
 
     # =====================================

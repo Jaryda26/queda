@@ -49,25 +49,31 @@ def aplicar_tema():
            (lo trae Bootstrap embebido), y eso NO se puede tocar con
            background-color desde afuera — el contenido de un
            iframe vive en su propio documento, aislado del nuestro.
-           Lo único que sí atraviesa esa frontera es "filter": con
-           invert(1) hue-rotate(180deg), un fondo blanco se convierte
-           matemáticamente en el verde oscuro exacto de la barra
-           lateral (#0F3D37) — lo calculé, no es a ojo. Los colores
-           del ícono en app.py están ajustados para que, DESPUÉS de
-           este filtro, se vean en el verde azulado y rojo correctos.
 
-           El selector usa [title*="audio_recorder"] (coincidencia
-           parcial) porque Streamlit registra el título del iframe
-           como "<módulo>.<nombre>" (confirmado en vivo:
-           "audio_recorder_streamlit.audio_recorder", no solo
-           "audio_recorder" como parecía razonable a primera vista)
-           — con coincidencia parcial no importa el prefijo exacto,
-           y no afecta al indicador de activación por voz (otro
-           iframe, con título distinto), que ya tiene sus propios
-           colores oscuros correctos y no necesita este truco. */
+           Mi primer intento (invert + hue-rotate) estaba mal: el
+           blanco invertido da negro puro, y el negro no tiene
+           matiz que "hue-rotate" pueda rotar — por eso se veía
+           negro en vez de verde. La combinación que sí funciona:
+           invert(1) vuelve blanco -> negro, y mix-blend-mode:screen
+           (contra el fondo VERDADERO detrás del iframe, no una
+           simulación) hace que screen(negro, X) = X exactamente —
+           es decir, el negro se vuelve invisible y deja ver el
+           verde real de la barra lateral que está detrás. Lo
+           comprobé con las fórmulas exactas del filtro antes de
+           aplicarlo, incluyendo qué color de ícono hay que usar
+           para que, después de este mismo proceso, se vea en el
+           acento correcto de la app.
+
+           Selector con [title*="audio_recorder"] (coincidencia
+           parcial) porque Streamlit registra el iframe con el
+           nombre del paquete por delante
+           ("audio_recorder_streamlit.audio_recorder", confirmado
+           en vivo) — y así no afecta al indicador de activación
+           por voz, que es otro iframe con título distinto. */
 
         section[data-testid="stSidebar"] iframe[title*="audio_recorder"] {
-            filter: invert(1) hue-rotate(180deg);
+            filter: invert(1);
+            mix-blend-mode: screen;
             border-radius: 12px;
         }
 
