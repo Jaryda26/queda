@@ -35,6 +35,12 @@ st.set_page_config(
     page_icon="💰",
     layout="wide"
 )
+st.session_state["es_movil"] = (
+    st.query_params.get(
+        "mobile",
+        "0"
+    ) == "1"
+)
 
 aplicar_tema()
 
@@ -47,7 +53,6 @@ st.markdown(
 <style>
 
 /* Móvil */
-
 @media (max-width: 768px){
 
     section[data-testid="stSidebar"]{
@@ -55,11 +60,28 @@ st.markdown(
     }
 
     .block-container{
-        padding-top:1rem;
-        padding-left:1rem;
-        padding-right:1rem;
+        padding-top:0.5rem !important;
+        padding-left:0.7rem !important;
+        padding-right:0.7rem !important;
+        padding-bottom:1rem !important;
     }
 
+    div[data-testid="stMetric"]{
+        padding:4px !important;
+    }
+
+    button[kind="secondary"]{
+        width:100%;
+    }
+}
+
+/* Tablet */
+@media (max-width: 1024px){
+
+    .block-container{
+        padding-left:1rem !important;
+        padding-right:1rem !important;
+    }
 }
 
 </style>
@@ -232,8 +254,11 @@ else:
 
     st.sidebar.success(
         st.session_state.get(
-            "nombre",
-            ""
+            "nombre_corto",
+            st.session_state.get(
+                "nombre",
+                ""
+            )
         )
     )
 
@@ -275,7 +300,7 @@ else:
             recording_color="#FF6941",
             neutral_color="#008C82",
             icon_name="microphone",
-            icon_size="5x"
+            icon_size="4x"
         )
 
     # =====================================
