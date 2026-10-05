@@ -239,20 +239,18 @@ else:
 
     st.sidebar.markdown("### 🎤 Queda")
 
-    # El micrófono vive DENTRO de la barra lateral (with st.sidebar)
-    # — antes se dibujaba en el área principal, arriba de la página,
-    # y se iba con el scroll. La barra lateral se queda fija en
-    # pantalla mientras te desplazas por el contenido.
+    # Micrófono FLOTANTE: se dibuja en el cuerpo de la página (no en la
+    # barra lateral) y el CSS de services/ui_theme.py lo fija en la
+    # esquina inferior derecha de la ventana. Así no se pierde al
+    # desplazarte ni al cerrar el menú lateral.
 
-    with st.sidebar:
-
-        audio_bytes = audio_recorder(
-            text="",
-            recording_color="#00D9D2",
-            neutral_color="#E13955",
-            icon_name="microphone",
-            icon_size="5x"
-        )
+    audio_bytes = audio_recorder(
+        text="",
+        recording_color="#00D9D2",
+        neutral_color="#E13955",
+        icon_name="microphone",
+        icon_size="3x"
+    )
 
     # =====================================
     # ACTIVACIÓN POR VOZ (beta) — nivel 1:

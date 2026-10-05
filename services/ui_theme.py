@@ -44,43 +44,77 @@ def aplicar_tema():
             border-color: #2A8577;
         }
 
-        /* El micrófono (audio_recorder_streamlit) es un paquete de
-           terceros: dibuja su iframe con fondo blanco por dentro
-           (lo trae Bootstrap embebido), y eso NO se puede tocar con
-           background-color desde afuera — el contenido de un
-           iframe vive en su propio documento, aislado del nuestro.
+        /* ===== MICRÓFONO FLOTANTE =====
+           El micrófono (audio_recorder_streamlit) es un paquete de
+           terceros que dibuja un iframe con fondo blanco por dentro;
+           eso no se puede cambiar con background-color desde afuera
+           (el iframe es otro documento). Lo que sí funciona:
+           invert(1) vuelve ese blanco negro, y mix-blend-mode:screen
+           lo funde con el fondo verde del contenedor (screen(negro,X)
+           = X), así el ícono queda sobre un círculo verde sólido. Los
+           colores del ícono en app.py están calculados para ese
+           proceso (verificado con las fórmulas exactas).
 
-           Mi primer intento (invert + hue-rotate) estaba mal: el
-           blanco invertido da negro puro, y el negro no tiene
-           matiz que "hue-rotate" pueda rotar — por eso se veía
-           negro en vez de verde. La combinación que sí funciona:
-           invert(1) vuelve blanco -> negro, y mix-blend-mode:screen
-           (contra el fondo VERDADERO detrás del iframe, no una
-           simulación) hace que screen(negro, X) = X exactamente —
-           es decir, el negro se vuelve invisible y deja ver el
-           verde real de la barra lateral que está detrás. Lo
-           comprobé con las fórmulas exactas del filtro antes de
-           aplicarlo, incluyendo qué color de ícono hay que usar
-           para que, después de este mismo proceso, se vea en el
-           acento correcto de la app.
+           El contenedor se fija con position:fixed a la ventana. Una
+           regla por selector, a propósito: si un navegador no
+           entiende :has(), solo se ignora esa regla y no todas.
+           Ajuste fino del ícono: --mic-dx / --mic-dy. */
 
-           Selector con [title*="audio_recorder"] (coincidencia
-           parcial) porque Streamlit registra el iframe con el
-           nombre del paquete por delante
-           ("audio_recorder_streamlit.audio_recorder", confirmado
-           en vivo) — y así no afecta al indicador de activación
-           por voz, que es otro iframe con título distinto. */
+        :root {
+            --mic-size: 84px;
+            --mic-dx: 14px;
+            --mic-dy: 10px;
+        }
 
-        section[data-testid="stSidebar"] iframe[title*="audio_recorder"] {
+        [data-testid="stElementContainer"]:has(iframe[title*="audio_recorder"]) {
+            position: fixed !important;
+            right: 24px;
+            bottom: 24px;
+            width: var(--mic-size) !important;
+            height: var(--mic-size) !important;
+            min-height: 0 !important;
+            z-index: 999990;
+            border-radius: 50%;
+            background-color: #0F3D37;
+            box-shadow: 0 8px 22px rgba(15, 61, 55, 0.45);
+            overflow: hidden;
+            isolation: isolate;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .element-container:has(iframe[title*="audio_recorder"]) {
+            position: fixed !important;
+            right: 24px;
+            bottom: 24px;
+            width: var(--mic-size) !important;
+            height: var(--mic-size) !important;
+            min-height: 0 !important;
+            z-index: 999990;
+            border-radius: 50%;
+            background-color: #0F3D37;
+            box-shadow: 0 8px 22px rgba(15, 61, 55, 0.45);
+            overflow: hidden;
+            isolation: isolate;
+        }
+
+        [data-testid="stElementContainer"]:has(iframe[title*="audio_recorder"]):hover {
+            transform: scale(1.06);
+            box-shadow: 0 10px 26px rgba(15, 157, 139, 0.55);
+        }
+
+        iframe[title*="audio_recorder"] {
+            display: block;
+            width: var(--mic-size) !important;
+            height: var(--mic-size) !important;
             filter: invert(1);
             mix-blend-mode: screen;
-            border-radius: 12px;
+            transform: translate(var(--mic-dx), var(--mic-dy));
         }
 
         /* El reproductor de audio (st.audio) de las respuestas
-           habladas es nativo, no un iframe — pero sus controles
-           también son un widget del navegador con fondo blanco que
-           no se puede repintar con CSS normal. Mismo truco. */
+           habladas es nativo, no un iframe: sus controles también
+           son un widget del navegador con fondo claro. Mismo
+           truco, en la barra lateral (fondo verde detrás). */
 
         section[data-testid="stSidebar"] audio {
             filter: invert(1) hue-rotate(180deg);
