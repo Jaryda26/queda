@@ -25,11 +25,11 @@ _DESTINOS = {
     "movimientos": "movimientos",
     "historial": "movimientos",
     "recordatorios": "recordatorios",
+    "presupuesto": "presupuesto",
+    "aprendizaje": "aprendizaje",
 }
 
 _SOLO_WEB = {
-    "presupuesto": "Presupuesto",
-    "aprendizaje": "Aprendizaje",
     "asistente ia": "Asistente",
     "cuenta": "Cuenta",
     "suscripcion": "Suscripción",

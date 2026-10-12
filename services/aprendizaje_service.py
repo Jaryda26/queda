@@ -1,5 +1,17 @@
-from db import obtener_dataframe
-from services.intent_engine import normalizar_texto, extraer_monto_de_texto
+from db import ejecutar_query, obtener_dataframe
+from services.intent_engine import (
+    normalizar_texto,
+    extraer_monto_de_texto,
+    detectar_ensenanza,
+)
+
+ACCIONES_VALIDAS = (
+    "REGISTRAR_GASTO",
+    "REGISTRAR_INGRESO",
+    "PAGAR_RECORDATORIO",
+    "TERMINAR_ACTIVIDAD",
+    "POSPONER_RECORDATORIO",
+)
 
 
 def _frase_coincide(frase_normalizada, texto_normalizado):
@@ -46,6 +58,14 @@ def buscar_frase_aprendida(cuenta_id, texto):
     sigue su camino normal: reglas de fábrica, y si tampoco
     matchea nada ahí, la IA).
     """
+
+    # "aprende que X es un ingreso" se atiende ANTES de revisar las
+    # frases guardadas: si no, una frase corta ya enseñada (ej. "listo")
+    # secuestraría la propia orden de enseñar otra.
+    ensenanza = detectar_ensenanza(texto)
+
+    if ensenanza:
+        return ensenanza
 
     df = obtener_dataframe(
         """
@@ -148,3 +168,87 @@ def buscar_frase_aprendida(cuenta_id, texto):
             }
 
     return None
+
+
+
+def guardar_frase(usuario_id, cuenta_id, frase, accion, categoria=None):
+    """
+    Guarda una frase enseñada. Si ya existe la misma (ignorando
+    acentos/mayúsculas) en la cuenta, la ACTUALIZA en vez de duplicarla.
+    Regresa (id, actualizada). Lanza ValueError si es inválida.
+    """
+
+    frase = (frase or "").strip()
+    accion = (accion or "").upper()
+    categoria = (categoria or "").strip() or None
+
+    if not frase or len(frase) > 255:
+        raise ValueError("Escribe una frase (máximo 255 caracteres).")
+
+    if accion not in ACCIONES_VALIDAS:
+        raise ValueError("Acción inválida.")
+
+    if categoria and len(categoria) > 100:
+        raise ValueError("La categoría es demasiado larga.")
+
+    clave = normalizar_texto(frase)
+
+    existentes = obtener_dataframe(
+        """
+        SELECT id, frase
+        FROM gastos.diccionario_usuario
+        WHERE cuenta_id = :cuenta_id
+        """,
+        {"cuenta_id": cuenta_id},
+    )
+
+    for _, fila in existentes.iterrows():
+        if normalizar_texto(str(fila["frase"])) == clave:
+            ejecutar_query(
+                """
+                UPDATE gastos.diccionario_usuario
+                SET accion = :accion, categoria = :categoria, frase = :frase
+                WHERE id = :id AND cuenta_id = :cuenta_id
+                """,
+                {"id": int(fila["id"]), "cuenta_id": cuenta_id,
+                 "accion": accion, "categoria": categoria, "frase": frase},
+            )
+            return int(fila["id"]), True
+
+    ejecutar_query(
+        """
+        INSERT INTO gastos.diccionario_usuario
+            (usuario_id, cuenta_id, frase, accion, categoria)
+        VALUES (:uid, :cuenta_id, :frase, :accion, :categoria)
+        """,
+        {"uid": usuario_id, "cuenta_id": cuenta_id, "frase": frase,
+         "accion": accion, "categoria": categoria},
+    )
+
+    return None, False
+
+
+def listar_frases(cuenta_id):
+    return obtener_dataframe(
+        """
+        SELECT id, frase, accion, categoria, fecha_creacion
+        FROM gastos.diccionario_usuario
+        WHERE cuenta_id = :cuenta_id
+        ORDER BY id DESC
+        """,
+        {"cuenta_id": cuenta_id},
+    )
+
+
+def eliminar_frase(cuenta_id, frase_id):
+    """True si borró algo (siempre acotado a la cuenta)."""
+
+    r = ejecutar_query(
+        """
+        DELETE FROM gastos.diccionario_usuario
+        WHERE id = :id AND cuenta_id = :cuenta_id
+        """,
+        {"id": frase_id, "cuenta_id": cuenta_id},
+    )
+
+    return bool(getattr(r, "rowcount", 0))

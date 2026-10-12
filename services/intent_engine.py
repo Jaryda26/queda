@@ -160,9 +160,229 @@ def detectar_categoria(texto):
     return "Otros"
 
 
+# ============================================================
+# Montos hablados ("dos mil quinientos") — solo para los comandos
+# de Presupuesto. extraer_monto_de_texto() sigue igual para el resto.
+# ============================================================
+
+_UNIDADES = {
+    "cero": 0, "un": 1, "uno": 1, "una": 1, "dos": 2, "tres": 3,
+    "cuatro": 4, "cinco": 5, "seis": 6, "siete": 7, "ocho": 8,
+    "nueve": 9, "diez": 10, "once": 11, "doce": 12, "trece": 13,
+    "catorce": 14, "quince": 15, "dieciseis": 16, "diecisiete": 17,
+    "dieciocho": 18, "diecinueve": 19, "veinte": 20, "veintiun": 21,
+    "veintiuno": 21, "veintidos": 22, "veintitres": 23,
+    "veinticuatro": 24, "veinticinco": 25, "veintiseis": 26,
+    "veintisiete": 27, "veintiocho": 28, "veintinueve": 29,
+}
+
+_DECENAS = {
+    "treinta": 30, "cuarenta": 40, "cincuenta": 50, "sesenta": 60,
+    "setenta": 70, "ochenta": 80, "noventa": 90,
+}
+
+_CENTENAS = {
+    "cien": 100, "ciento": 100, "doscientos": 200, "trescientos": 300,
+    "cuatrocientos": 400, "quinientos": 500, "seiscientos": 600,
+    "setecientos": 700, "ochocientos": 800, "novecientos": 900,
+}
+
+
+def extraer_monto_flexible(texto):
+    """
+    Monto en dígitos ('2000', '2,000', '2.5 mil', '2 mil') o en palabras
+    ('dos mil quinientos'). Regresa None si no encuentra nada.
+    """
+
+    # normalizar_texto quita puntos y comas (rompería "2.5 mil" y
+    # "2,000"), así que los dígitos se buscan en el texto crudo.
+    crudo = texto.lower().replace(",", "")
+
+    m = re.search(
+        r"(\d+(?:\.\d+)?)\s*(mil|millones|mill[oó]n)?(?![a-zñ])", crudo
+    )
+
+    if m:
+        valor = float(m.group(1))
+        if m.group(2) == "mil":
+            valor *= 1000
+        elif m.group(2):
+            valor *= 1_000_000
+        return valor
+
+    t = normalizar_texto(texto)
+
+    total = 0
+    bloque = 0
+    hubo = False
+
+    for w in t.split():
+        if w in _UNIDADES:
+            bloque += _UNIDADES[w]; hubo = True
+        elif w in _DECENAS:
+            bloque += _DECENAS[w]; hubo = True
+        elif w in _CENTENAS:
+            bloque += _CENTENAS[w]; hubo = True
+        elif w == "y":
+            continue
+        elif w == "mil":
+            total += (bloque or 1) * 1000; bloque = 0; hubo = True
+        elif w in ("millon", "millones"):
+            total += (bloque or 1) * 1_000_000; bloque = 0; hubo = True
+
+    if not hubo:
+        return None
+
+    total += bloque
+
+    return float(total) if total > 0 else None
+
+
+_PERIODOS = (
+    ("SEMANAL", ("semanal", "semana", "semanas")),
+    ("QUINCENAL", ("quincenal", "quincena", "quincenas")),
+    ("MENSUAL", ("mensual", "mes", "meses")),
+)
+
+
+def detectar_cambio_presupuesto(texto):
+    """
+    "pon mi presupuesto semanal en 2000" / "cambia el presupuesto a
+    5 mil al mes" -> CAMBIAR_PRESUPUESTO. Solo cuando mencionan
+    presupuesto Y un verbo de cambio (así "abre mi presupuesto" sigue
+    siendo solo navegación).
+    """
+
+    t = normalizar_texto(texto)
+    palabras = t.split()
+
+    if "presupuesto" not in palabras and "presupuestos" not in palabras:
+        return None
+
+    verbos = (
+        "pon", "ponme", "poner", "cambia", "cambiame", "cambiar",
+        "ajusta", "ajustame", "actualiza", "actualizame", "establece",
+        "configura", "fija", "sube", "baja", "deja", "dejalo",
+        "modifica", "quiero", "crea", "crear",
+    )
+
+    if not any(v in palabras for v in verbos):
+        return None
+
+    monto = extraer_monto_flexible(t)
+
+    periodo = None
+    for clave, formas in _PERIODOS:
+        if any(f in palabras for f in formas):
+            periodo = clave
+            break
+
+    return {
+        "accion": "CAMBIAR_PRESUPUESTO",
+        "monto": monto,
+        "tipo_periodo": periodo,
+    }
+
+
+_ACCIONES_ENSENANZA = (
+    ("REGISTRAR_INGRESO", r"ingresos?|entradas?"),
+    ("REGISTRAR_GASTO", r"gastos?|compras?"),
+    ("TERMINAR_ACTIVIDAD",
+     r"terminar(?: la)?(?: actividad| cita)?|terminad[oa]|hech[oa]|"
+     r"actividad terminada|cita terminada"),
+    ("POSPONER_RECORDATORIO",
+     r"posponer(?:lo)?|pospuest[oa]|aplazar(?:lo)?"),
+    ("PAGAR_RECORDATORIO", r"pagad[oa]|pagos?|pagar"),
+)
+
+_PALABRAS_VACIAS_FRASE = {
+    "ya", "si", "no", "el", "la", "lo", "un", "una", "de", "que", "y",
+    "a", "en", "es", "se", "me", "mi",
+}
+
+
+def detectar_ensenanza(texto):
+    """
+    "aprende que ya chilló la marrana es un ingreso"
+    "cuando diga me eché una coca es un gasto de comida"
+    "enséñale a Queda que ya quedó significa pagado"
+    -> APRENDER_FRASE con frase/accion_aprendida/categoria.
+    """
+
+    t = normalizar_texto(texto)
+
+    inicio = re.match(
+        r"^(?:aprende(?:te)?|ensena(?:le|me)?(?: a \w+)?|"
+        r"cuando(?: yo)? (?:diga|digo|te diga))"
+        r"(?: que| la frase| esta frase)?\s+(?P<resto>.+)$",
+        t,
+    )
+
+    if not inicio:
+        return None
+
+    resto = inicio.group("resto")
+
+    for accion, patron in _ACCIONES_ENSENANZA:
+
+        m = re.match(
+            r"^(?P<frase>.+)\s+"
+            r"(?:es|son|significa|quiere decir|cuenta como|sera|"
+            r"se registra como|registrala como|como)\s+"
+            r"(?:un |una |el |la |de )?"
+            rf"(?:{patron})"
+            r"(?:\s+(?:de|del|en|para|categoria)\s+(?P<cat>.+))?$",
+            resto,
+        )
+
+        if m:
+
+            frase = m.group("frase").strip()
+            palabras = frase.split()
+
+            if (
+                not palabras
+                or len(palabras) > 10
+                or len(frase) < 3
+                or all(p in _PALABRAS_VACIAS_FRASE for p in palabras)
+            ):
+                return {
+                    "accion": "APRENDER_FRASE",
+                    "error": "frase_invalida",
+                }
+
+            cat = (m.group("cat") or "").strip()
+
+            return {
+                "accion": "APRENDER_FRASE",
+                "frase": frase,
+                "accion_aprendida": accion,
+                "categoria": cat.title() if cat else None,
+            }
+
+    # Solo "aprende ..." avisa que faltó la acción; "enséñame mis
+    # gastos" u otras frases normales no deben quedar atrapadas.
+    if t.startswith("aprende"):
+        return {"accion": "APRENDER_FRASE", "error": "sin_accion"}
+
+    return None
+
+
 def detectar_intencion(texto):
 
     texto_original = texto
+
+    # Comandos que EDITAN datos van primero: si no, palabras como
+    # "termina" o "presupuesto" los confundirían con otros comandos.
+    ensenanza = detectar_ensenanza(texto)
+
+    if ensenanza:
+        return ensenanza
+
+    cambio = detectar_cambio_presupuesto(texto)
+
+    if cambio:
+        return cambio
 
     texto = normalizar_texto(texto)
 

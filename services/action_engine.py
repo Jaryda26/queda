@@ -202,6 +202,103 @@ def ejecutar_accion(resultado):
         st.rerun()
 
     # =====================================
+    # CAMBIAR PRESUPUESTO ("pon mi presupuesto semanal en 2000")
+    # =====================================
+    if accion == "CAMBIAR_PRESUPUESTO":
+
+        from services.presupuesto_service import (
+            guardar_presupuesto,
+            obtener_estado_presupuesto,
+        )
+
+        monto = resultado.get("monto")
+
+        if monto is None:
+            return (
+                "No alcancé a oír el monto. Dilo así: "
+                "pon mi presupuesto semanal en 2000 pesos."
+            )
+
+        actual = obtener_estado_presupuesto(
+            st.session_state["cuenta_id"]
+        )
+
+        tipo = (
+            resultado.get("tipo_periodo")
+            or (actual["tipo_periodo"] if actual else "MENSUAL")
+        )
+
+        try:
+            nuevo = guardar_presupuesto(
+                st.session_state["user_id"],
+                st.session_state["cuenta_id"],
+                tipo,
+                monto,
+            )
+        except ValueError as e:
+            return f"No pude cambiar el presupuesto: {e}"
+
+        etiqueta = {
+            "SEMANAL": "semanal",
+            "QUINCENAL": "quincenal",
+            "MENSUAL": "mensual",
+        }[nuevo["tipo_periodo"]]
+
+        return (
+            f"✅ Presupuesto {etiqueta} en ${nuevo['monto']:,.2f}. "
+            f"Llevas ${nuevo['gastado']:,.2f} gastados "
+            f"({nuevo['porcentaje']:.0f}%)."
+        )
+
+    # =====================================
+    # APRENDER FRASE ("aprende que X es un ingreso")
+    # =====================================
+    if accion == "APRENDER_FRASE":
+
+        from services.aprendizaje_service import guardar_frase
+
+        error = resultado.get("error")
+
+        if error == "sin_accion":
+            return (
+                "Dime qué significa. Por ejemplo: aprende que "
+                "ya chilló la marrana es un ingreso."
+            )
+
+        if error == "frase_invalida":
+            return (
+                "Esa frase es muy corta o muy genérica para "
+                "aprenderla. Usa una frase más específica."
+            )
+
+        etiquetas = {
+            "REGISTRAR_INGRESO": "un ingreso",
+            "REGISTRAR_GASTO": "un gasto",
+            "PAGAR_RECORDATORIO": "un pago realizado",
+            "TERMINAR_ACTIVIDAD": "una actividad terminada",
+            "POSPONER_RECORDATORIO": "posponer un recordatorio",
+        }
+
+        try:
+            _, actualizada = guardar_frase(
+                st.session_state["user_id"],
+                st.session_state["cuenta_id"],
+                resultado["frase"],
+                resultado["accion_aprendida"],
+                resultado.get("categoria"),
+            )
+        except ValueError as e:
+            return f"No pude guardar esa frase: {e}"
+
+        verbo = "Actualicé" if actualizada else "Aprendí"
+
+        return (
+            f"🧠 {verbo}: \"{resultado['frase']}\" ahora es "
+            f"{etiquetas[resultado['accion_aprendida']]}. "
+            "Puedes borrarla en Aprendizaje."
+        )
+
+    # =====================================
     # ABRIR ASISTENTE
     # =====================================
     if accion == "ABRIR_ASISTENTE":

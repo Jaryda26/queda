@@ -3,9 +3,11 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from api.aprendizaje import router as aprendizaje_router
 from api.auth import router as auth_router
 from api.dashboard import router as dashboard_router
 from api.movimientos import router as movimientos_router
+from api.presupuesto import router as presupuesto_router
 from api.recordatorios import router as recordatorios_router
 from api.voz import router as voz_router
 
@@ -30,6 +32,8 @@ app.include_router(auth_router)
 app.include_router(dashboard_router)
 app.include_router(movimientos_router)
 app.include_router(recordatorios_router)
+app.include_router(presupuesto_router)
+app.include_router(aprendizaje_router)
 app.include_router(voz_router)
 
 
