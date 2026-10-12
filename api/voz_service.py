@@ -40,9 +40,28 @@ _BASURA_VOZ = re.compile(
 )
 
 
+def _monto_hablado(numero):
+    """'12,000.00' -> '12000 pesos' ; '350.50' -> '350 pesos con 50 centavos'."""
+    limpio = numero.replace(",", "")
+    entero, _, dec = limpio.partition(".")
+    dec = (dec + "00")[:2]
+    texto = f"{int(entero or 0)} pesos"
+    if dec != "00":
+        texto += f" con {int(dec)} centavos"
+    return texto
+
+
 def texto_para_voz(mensaje):
     """Quita emojis y markdown para que el TTS del teléfono no los lea."""
-    t = _BASURA_VOZ.sub("", mensaje or "")
+    t = mensaje or ""
+    # "$12,000.00" -> "12000 pesos" (el TTS del teléfono lo leía como dólares)
+    t = t.replace("\\", "")
+    t = re.sub(
+        r"\$\s*([\d,]+(?:\.\d+)?)(\s*pesos)?",
+        lambda m: _monto_hablado(m.group(1)),
+        t,
+    )
+    t = _BASURA_VOZ.sub("", t)
     t = t.replace("**", "").replace("`", "").replace("*", "")
     t = re.sub(r"\n{2,}", ". ", t)
     t = t.replace("\n", " ")
@@ -190,11 +209,15 @@ def procesar(usuario, texto, esperando_monto=False):
 
     try:
         intencion = interpretar_movimiento(texto)
-    except Exception:
+    except Exception as e:
         log.exception("Falló la interpretación con IA")
+        # Sin datos sensibles: solo el TIPO de falla, para poder diagnosticar.
+        causa = type(e).__name__
+        if isinstance(e, (KeyError, RuntimeError)):
+            causa = "faltan credenciales AZURE_OPENAI en el servidor"
         return _resultado(
             "ERROR",
-            "No pude interpretar eso ahora mismo. Intenta de nuevo en un momento.",
+            f"No pude interpretar eso ahora mismo (IA: {causa}).",
             texto=texto,
         )
 

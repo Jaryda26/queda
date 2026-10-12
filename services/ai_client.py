@@ -12,11 +12,13 @@ def _secreto(nombre):
     """
 
     try:
-        return st.secrets[nombre]
+        return str(st.secrets[nombre]).strip()
     except Exception:
         pass
 
-    valor = os.getenv(nombre)
+    # strip(): un espacio o salto de línea pegado al copiar la llave en el
+    # .env hace que Azure responda 401 aunque la llave sea la correcta.
+    valor = (os.getenv(nombre) or "").strip().strip('"\'').strip()
 
     if valor:
         return valor
