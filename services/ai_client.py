@@ -1,5 +1,27 @@
+import os
+
 import streamlit as st
 from openai import OpenAI
+
+
+def _secreto(nombre):
+    """
+    Lee un secreto de st.secrets (Streamlit Cloud) y, si no está ahí
+    (por ejemplo cuando corre la API del celular con uvicorn), de las
+    variables de entorno / .env. Lanza KeyError si no existe en ninguno.
+    """
+
+    try:
+        return st.secrets[nombre]
+    except Exception:
+        pass
+
+    valor = os.getenv(nombre)
+
+    if valor:
+        return valor
+
+    raise KeyError(nombre)
 
 _client = None
 
@@ -21,8 +43,8 @@ def get_openai_client():
 
     try:
 
-        endpoint = st.secrets["AZURE_OPENAI_ENDPOINT"]
-        api_key = st.secrets["AZURE_OPENAI_KEY"]
+        endpoint = _secreto("AZURE_OPENAI_ENDPOINT")
+        api_key = _secreto("AZURE_OPENAI_KEY")
 
     except Exception:
 
@@ -42,4 +64,4 @@ def get_openai_client():
 def get_deployment():
     """Nombre del deployment configurado en st.secrets."""
 
-    return st.secrets["AZURE_OPENAI_DEPLOYMENT"]
+    return _secreto("AZURE_OPENAI_DEPLOYMENT")

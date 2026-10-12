@@ -7,6 +7,7 @@ from api.auth import router as auth_router
 from api.dashboard import router as dashboard_router
 from api.movimientos import router as movimientos_router
 from api.recordatorios import router as recordatorios_router
+from api.voz import router as voz_router
 
 app = FastAPI(
     title="QUEDA API",
@@ -29,6 +30,7 @@ app.include_router(auth_router)
 app.include_router(dashboard_router)
 app.include_router(movimientos_router)
 app.include_router(recordatorios_router)
+app.include_router(voz_router)
 
 
 @app.get("/")

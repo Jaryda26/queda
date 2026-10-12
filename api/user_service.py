@@ -51,6 +51,19 @@ def buscar_usuario_por_id(usuario_id):
 
     usuario = df.iloc[0].to_dict()
 
+    # Nombre con el que el usuario llama a su agente (puede no existir
+    # si aún no corriste schema.sql en producción).
+    try:
+        a = obtener_dataframe(
+            "SELECT nombre_agente FROM gastos.usuarios WHERE id = :id",
+            {"id": usuario_id}
+        )
+        usuario["nombre_agente"] = (
+            str(a.iloc[0]["nombre_agente"] or "Queda")
+        )
+    except Exception:
+        usuario["nombre_agente"] = "Queda"
+
     # Lo que no se pueda convertir a int (NaN) queda None.
     cid = usuario.get("cuenta_id")
     usuario["cuenta_id"] = None if cid != cid or cid is None else int(cid)

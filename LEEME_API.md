@@ -1,26 +1,21 @@
-# Queda móvil — qué cambió
+# Voz en el celular — cambios WEB + API
 
-## API (carpeta `api/`, reemplaza la tuya)
-- **Login ahora valida la contraseña (bcrypt)**. Antes entraba cualquiera con solo el correo.
-- JWT secret fuera del código: agrega a tu `.env` -> `API_JWT_SECRET=` (python -c "import secrets; print(secrets.token_urlsafe(48))"). Sin esto la API no arranca (a propósito).
-- `/dashboard/resumen` antes **no tenía login ni filtro de cuenta** (mostraba datos de todos). Ahora filtra por `cuenta_id`.
-- Paywall igual que la web: sin suscripción activa/trialing -> HTTP 402.
-- Recordatorios: `PUT /{id}/pagar` ahora hace lo mismo que la web (PAGO crea el gasto, ACTIVIDAD no, recurrentes avanzan fecha); `PUT /{id}/despues`; `DELETE`; crear acepta monto/fecha/frecuencia y respeta el límite del plan (Básico 5).
-- Movimientos: `DELETE /{id}` (el saldo se recalcula solo), valida GASTO/INGRESO y monto > 0.
-- `/auth/me` ya no recibe el token por URL (iba a quedar en logs); usa `Authorization: Bearer`.
+Copia TODO este zip sobre tu proyecto (respeta carpetas) y súbelo a Streamlit con git.
 
-Arrancar (desde la carpeta del proyecto web, donde está `db.py`):
-    pip install -r api/requirements_api.txt
+## Archivos
+- api/            -> nuevo: voz_service.py, voz.py (POST /voz/comando) + main.py, user_service.py, __init__.py
+- services/estado_voz.py     NUEVO (en la web no cambia nada: usa streamlit normal)
+- services/interprete_ia.py  NUEVO (la función de IA, sacada de views/asistente.py)
+- services/ai_client.py      lee secretos de st.secrets O del .env
+- services/action_engine.py  1 sola línea cambiada: `from services.estado_voz import st`
+- views/asistente.py         ahora importa interpretar_movimiento de interprete_ia (mismo comportamiento)
+
+## .env (solo para la API en tu PC) — agrega los mismos valores que tienes en Streamlit secrets:
+    AZURE_OPENAI_ENDPOINT=...
+    AZURE_OPENAI_KEY=...
+    AZURE_OPENAI_DEPLOYMENT=...
+(DATABASE_URL y API_JWT_SECRET ya los tienes.)
+
+## Probar
     uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
-
-## Flutter (`queda_mobile_lib_cambios/` -> copia dentro de `queda_mobile/lib/`, sobrescribe)
-- `api_service.dart`: cliente HTTP único con token, timeout y errores legibles.
-- URL por parámetro, sin editar código:
-    Emulador:  flutter run --dart-define=API_URL=http://10.0.2.2:8000
-    Teléfono:  flutter run --dart-define=API_URL=http://TU_IP:8000
-- `main.dart`: sesión persistente.
-- Todos los servicios usan ese cliente (el dashboard/resumen ya manda token).
-- Android: si usas http (no https) en `android/app/src/main/AndroidManifest.xml`
-  agrega `android:usesCleartextTraffic="true"` en `<application>` (solo desarrollo).
-- Producción/iOS: iOS bloquea http; necesitarás la API en HTTPS.
-- Borra `screens/voz_screen.dart1.dart` (copia vieja).
+    http://localhost:8000/docs  -> debe aparecer POST /voz/comando

@@ -1,4 +1,4 @@
-import streamlit as st
+from services.estado_voz import st
 import json
 from datetime import datetime
 

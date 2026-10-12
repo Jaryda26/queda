@@ -11,12 +11,7 @@ azure-cognitiveservices-speech
 stripe
 extra-streamlit-components
 requests
-fastapi
-uvicorn
-python-jose
-passlib
-python-multipart
-pydantic
+# API móvil (FastAPI)
 fastapi
 uvicorn[standard]
 python-jose[cryptography]
