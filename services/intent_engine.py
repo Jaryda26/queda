@@ -110,7 +110,17 @@ def detectar_categoria(texto):
             "restaurante",
             "coca",
             "refresco",
-            "cafe"
+            "cafe",
+            "super",
+            "despensa",
+            "mandado",
+            "oxxo",
+            "tortillas",
+            "desayuno",
+            "almuerzo",
+            "cena",
+            "cervezas",
+            "tienda"
         ],
 
         "Servicios": [
@@ -121,7 +131,10 @@ def detectar_categoria(texto):
             "celular",
             "telmex",
             "izzi",
-            "totalplay"
+            "totalplay",
+            "renta",
+            "predial",
+            "gas natural"
         ],
 
         "Transporte": [
@@ -130,14 +143,20 @@ def detectar_categoria(texto):
             "taxi",
             "casetas",
             "caseta",
-            "estacionamiento"
+            "estacionamiento",
+            "metro",
+            "camion",
+            "pasaje"
         ],
 
         "Salud": [
             "doctor",
             "medico",
             "hospital",
-            "farmacia"
+            "farmacia",
+            "medicina",
+            "medicinas",
+            "dentista"
         ],
 
         "Entretenimiento": [
@@ -383,6 +402,16 @@ def detectar_intencion(texto):
 
     if cambio:
         return cambio
+
+    # Consultas calculadas ("¿en qué gasto más?") y metas de ahorro:
+    # también van antes de las palabras de navegación ("presupuesto",
+    # "mis gastos"...) que las confundirían.
+    from services.consultas_intents import detectar_consulta_o_meta
+
+    consulta = detectar_consulta_o_meta(texto)
+
+    if consulta:
+        return consulta
 
     texto = normalizar_texto(texto)
 

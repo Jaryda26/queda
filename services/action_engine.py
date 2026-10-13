@@ -1,10 +1,15 @@
 from services.estado_voz import st
 import json
+import logging
+import re
 from datetime import datetime
 
 from db import ejecutar_query
 from db import obtener_dataframe
-from services.intent_engine import normalizar_texto
+from services.intent_engine import (
+    extraer_monto_flexible,
+    normalizar_texto,
+)
 from services.recordatorios_service import (
     marcar_pagado,
     puede_agregar_recordatorio
@@ -84,6 +89,214 @@ def _buscar_recordatorios(recordatorios, descripcion):
     mascara = recordatorios["descripcion"].apply(coincide)
 
     return recordatorios[mascara]
+
+
+log = logging.getLogger("queda.acciones")
+
+
+def _consejo_personal(cuenta_id, pregunta):
+    """
+    Consejos basados en los números del usuario. Siempre se calculan; si
+    el plan incluye IA (y queda cupo del día) la IA los redacta de forma
+    más personal usando SOLO esas cifras.
+    """
+
+    from services import insights_service as ins
+    from services.billing_service import obtener_plan_actual
+    from services.plan_ia_service import (
+        consumir_ia,
+        devolver_ia,
+    )
+
+    try:
+        base = ins.consejo_texto(cuenta_id)
+    except Exception:
+        log.exception("Falló el cálculo de consejos")
+        return "⚠ No pude calcular tus consejos ahora mismo."
+
+    plan = obtener_plan_actual(cuenta_id)
+
+    if plan is None or not plan.get("incluye_ia", False):
+        return (
+            base + " Con el plan Individual o Familiar te doy consejos "
+            "personalizados con inteligencia artificial."
+        )
+
+    permitido, _, limite = consumir_ia(cuenta_id, plan)
+
+    if not permitido:
+        return (
+            base + f" (Llegaste a tu límite de {limite} consultas con IA "
+            "de hoy; estos consejos son calculados. El cupo se "
+            "reinicia a medianoche.)"
+        )
+
+    try:
+
+        from services.ai_client import get_openai_client, get_deployment
+
+        contexto = ins.contexto_financiero(cuenta_id)
+
+        prompt_sistema = (
+            "Eres el asesor financiero personal de Queda y hablas con el "
+            "usuario por voz/texto. Te doy un JSON con SUS números reales "
+            "(periodo, presupuesto, categorías, metas) y su pregunta.\n\n"
+            "Reglas:\n"
+            "- Usa ÚNICAMENTE cifras del contexto; nunca inventes montos.\n"
+            "- Sé específico y personal: nombra sus categorías y montos, "
+            "y da 2 o 3 acciones concretas que pueda hacer esta semana.\n"
+            "- Si tiene metas de ahorro, conéctalas con el consejo.\n"
+            "- Si faltan datos, dilo y sugiere registrar más gastos.\n"
+            "- Tono cálido y directo, español de México, prosa corrida: "
+            "sin listas, sin tablas, sin markdown ni asteriscos.\n"
+            "- Máximo 6 líneas."
+        )
+
+        response = get_openai_client().chat.completions.create(
+            model=get_deployment(),
+            messages=[
+                {"role": "system", "content": prompt_sistema},
+                {
+                    "role": "user",
+                    "content": (
+                        "Contexto: "
+                        + json.dumps(contexto, ensure_ascii=False, default=str)
+                        + "\n\nPregunta: "
+                        + (pregunta or "Dame un consejo para mejorar mis finanzas")
+                    ),
+                },
+            ],
+            temperature=0.4,
+            max_tokens=380,
+        )
+
+        texto = (response.choices[0].message.content or "").strip()
+        texto = texto.replace("`", "").replace("**", "").replace("*", "")
+
+        if not texto:
+            raise RuntimeError("respuesta vacía")
+
+        return texto
+
+    except Exception:
+
+        devolver_ia(cuenta_id)
+        log.exception("Falló el consejo con IA; se usan los calculados")
+
+        return base
+
+
+def _lista_metas(metas):
+    return ", ".join(m["nombre"] for m in metas)
+
+
+def _accion_meta(accion, resultado):
+    """CREAR_META / ABONAR_META / CONSULTAR_METAS. Lanza ValueError con
+    un mensaje listo para el usuario."""
+
+    from services import metas_service as ms
+
+    cuenta_id = st.session_state["cuenta_id"]
+    user_id = st.session_state["user_id"]
+
+    if accion == "CREAR_META":
+
+        if resultado.get("error") == "sin_monto":
+            raise ValueError(
+                "No alcancé a oír cuánto quieres ahorrar. Dilo así: "
+                "quiero ahorrar 10 mil pesos para vacaciones."
+            )
+
+        plazo = resultado.get("plazo")
+
+        limite = (
+            ms.fecha_desde_plazo(plazo["cantidad"], plazo["unidad"])
+            if plazo else None
+        )
+
+        meta = ms.crear_meta(
+            user_id, cuenta_id, resultado["nombre"],
+            resultado["monto"], limite,
+        )
+
+        texto = (
+            f"🎯 Meta creada: {meta['nombre']} por "
+            f"${meta['monto_objetivo']:,.2f}."
+        )
+
+        if meta["ahorro_semanal_sugerido"]:
+            texto += (
+                f" Para llegar en {meta['dias_restantes']} días necesitas "
+                f"apartar ${meta['ahorro_semanal_sugerido']:,.2f} por semana."
+            )
+
+        return texto + f" Para abonar di: abona 500 a {meta['nombre']}."
+
+    if accion == "ABONAR_META":
+
+        if resultado.get("error") == "sin_monto":
+            raise ValueError(
+                "No alcancé a oír el monto. Dilo así: abona 500 pesos "
+                "a mi meta de vacaciones."
+            )
+
+        nombre = resultado.get("meta") or ""
+        activas = [m for m in ms.listar_metas(cuenta_id) if not m["completada"]]
+
+        if not activas:
+            raise ValueError(
+                "No tienes metas activas. Crea una diciendo: quiero "
+                "ahorrar 10 mil pesos para vacaciones."
+            )
+
+        if nombre:
+            meta, candidatas = ms.buscar_meta(cuenta_id, nombre, solo_activas=True)
+            if meta is None and candidatas:
+                raise ValueError(
+                    f"¿A cuál meta? Tienes: {_lista_metas(candidatas)}."
+                )
+            if meta is None:
+                raise ValueError(
+                    f"No encontré una meta que se llame {nombre}. "
+                    f"Tus metas: {_lista_metas(activas)}."
+                )
+        elif len(activas) == 1:
+            meta = activas[0]
+        else:
+            raise ValueError(
+                f"¿A cuál meta? Tienes: {_lista_metas(activas)}. "
+                "Dilo así: abona 500 a vacaciones."
+            )
+
+        monto = float(resultado["monto"])
+        meta = ms.abonar(user_id, cuenta_id, meta["id"], monto)
+
+        texto = (
+            f"✅ {'Abonaste' if monto > 0 else 'Retiraste'} "
+            f"${abs(monto):,.2f} "
+            f"{'a' if monto > 0 else 'de'} {meta['nombre']}. "
+            f"Llevas ${meta['ahorrado']:,.2f} de "
+            f"${meta['monto_objetivo']:,.2f} ({meta['porcentaje']:.0f}%)."
+        )
+
+        if meta["completada"]:
+            texto += " 🎉 ¡Meta cumplida, felicidades!"
+        else:
+            texto += f" Te faltan ${meta['faltante']:,.2f}."
+
+        return texto
+
+    # CONSULTAR_METAS
+    nombre = resultado.get("meta") or ""
+
+    if nombre:
+        meta, candidatas = ms.buscar_meta(cuenta_id, nombre)
+        if meta:
+            return ms.describir_meta(meta)
+        if candidatas:
+            return " ".join(ms.describir_meta(m) for m in candidatas[:3])
+
+    return ms.resumen_metas(cuenta_id)
 
 
 def ejecutar_accion(resultado):
@@ -299,6 +512,87 @@ def ejecutar_accion(resultado):
         )
 
     # =====================================
+    # CONSULTAS CALCULADAS (sin IA, todos los planes)
+    # =====================================
+    if accion in (
+        "CONSULTA_GASTO_MAYOR",
+        "CONSULTA_AFECTA_PRESUPUESTO",
+        "CONSULTA_CUANTO_LLEVO",
+        "CONSULTA_GASTO_PERIODO",
+    ):
+
+        from services import insights_service as ins
+
+        cuenta_id = st.session_state["cuenta_id"]
+
+        try:
+
+            if accion == "CONSULTA_GASTO_MAYOR":
+                return ins.en_que_gasto_mas(cuenta_id)
+
+            if accion == "CONSULTA_AFECTA_PRESUPUESTO":
+                return ins.que_afecta_presupuesto(cuenta_id)
+
+            if accion == "CONSULTA_CUANTO_LLEVO":
+                return ins.cuanto_llevo(cuenta_id)
+
+            return ins.cuanto_gaste(
+                cuenta_id,
+                resultado.get("periodo"),
+                resultado.get("categoria"),
+            )
+
+        except Exception:
+
+            log.exception("Falló una consulta calculada")
+
+            return "⚠ No pude calcular eso ahora mismo. Intenta de nuevo."
+
+    # =====================================
+    # CONSEJO PERSONAL (calculado; con IA si el plan la incluye)
+    # =====================================
+    if accion == "CONSEJO_PERSONAL":
+
+        return _consejo_personal(
+            st.session_state["cuenta_id"],
+            resultado.get("pregunta") or resultado.get("texto_original") or "",
+        )
+
+    # =====================================
+    # METAS DE AHORRO (todos los planes)
+    # =====================================
+    if accion == "ABRIR_METAS":
+
+        st.session_state["pagina_actual"] = (
+            "Metas de ahorro"
+        )
+
+        st.session_state[
+            "debug_accion"
+        ] = "metas"
+
+        st.rerun()
+
+    if accion in ("CREAR_META", "ABONAR_META", "CONSULTAR_METAS"):
+
+        try:
+
+            return _accion_meta(accion, resultado)
+
+        except ValueError as e:
+
+            return f"⚠ {e}"
+
+        except Exception:
+
+            log.exception("Falló una acción de metas")
+
+            return (
+                "⚠ No pude acceder a tus metas ahora mismo. Intenta de "
+                "nuevo en un momento."
+            )
+
+    # =====================================
     # ABRIR ASISTENTE
     # =====================================
     if accion == "ABRIR_ASISTENTE":
@@ -348,6 +642,23 @@ def ejecutar_accion(resultado):
     # =====================================
 
     if accion == "PREGUNTAR_MONTO_INGRESO":
+
+        # "me depositaron 5000 pesos": si el monto viene con unidad
+        # clara, se registra directo en vez de volver a preguntarlo.
+        original = resultado.get("texto_original") or ""
+
+        if re.search(r"(\$\s*\d|\d\s*(pesos|mil)\b|\bmil\b)", original.lower()):
+
+            monto_dicho = extraer_monto_flexible(original)
+
+            if monto_dicho:
+                return ejecutar_accion({
+                    "accion": "REGISTRAR_INGRESO",
+                    "concepto": "Ingreso",
+                    "origen_ingreso": "Ingreso",
+                    "monto": monto_dicho,
+                    "texto_original": original,
+                })
 
         st.session_state[
             "esperando_monto_ingreso"

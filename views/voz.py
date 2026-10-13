@@ -13,7 +13,7 @@ from services.action_engine import ejecutar_accion
 from services.billing_service import obtener_plan_actual
 from services.aprendizaje_service import buscar_frase_aprendida
 
-from views.asistente import interpretar_movimiento
+from services.plan_ia_service import resolver_texto_libre
 
 
 
@@ -216,23 +216,20 @@ def procesar_texto_voz(texto):
         st.session_state["cuenta_id"]
     )
 
-    if plan is None or not plan.get("incluye_ia", True):
+    tipo_r, resultado = resolver_texto_libre(
+        st.session_state["cuenta_id"],
+        texto,
+        plan
+    )
+
+    if tipo_r == "BLOQUEO":
 
         st.session_state["audio_global"] = None
 
         return {
             "tipo": "ERROR",
-            "mensaje": (
-                "🔒 Registrar gastos por voz libre requiere "
-                "el plan Individual o Familiar. Puedes seguir "
-                "usando comandos como 'abre el dashboard' o "
-                "'ya pagué [recordatorio]'."
-            )
+            "mensaje": "🔒 " + resultado
         }
-
-    resultado = interpretar_movimiento(
-        texto
-    )
 
     resultado[
         "texto_original"

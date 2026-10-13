@@ -14,7 +14,7 @@ from services.aprendizaje_service import buscar_frase_aprendida
 from services.billing_service import obtener_plan_actual
 from services.estado_voz import nueva_sesion, NavegarSolicitado
 from services.intent_engine import detectar_intencion, extraer_monto_de_texto
-from services.interprete_ia import interpretar_movimiento
+from services.plan_ia_service import resolver_texto_libre
 
 log = logging.getLogger("queda.voz")
 
@@ -27,6 +27,7 @@ _DESTINOS = {
     "recordatorios": "recordatorios",
     "presupuesto": "presupuesto",
     "aprendizaje": "aprendizaje",
+    "metas de ahorro": "metas",
 }
 
 _SOLO_WEB = {
@@ -195,32 +196,16 @@ def procesar(usuario, texto, esperando_monto=False):
             texto=texto,
         )
 
-    # ---- IA (solo planes con IA) ----
-    plan = obtener_plan_actual(int(usuario["cuenta_id"]))
+    # ---- texto libre: reglas simples, y IA si el plan la incluye ----
+    cuenta_id = int(usuario["cuenta_id"])
+    plan = obtener_plan_actual(cuenta_id)
 
-    if plan is None or not plan.get("incluye_ia", True):
-        return _resultado(
-            "ERROR",
-            "Registrar por voz libre requiere el plan Individual o "
-            "Familiar. Puedes usar comandos como abre el dashboard o "
-            "ya pagué y el nombre del recordatorio.",
-            texto=texto,
-        )
+    tipo_r, valor = resolver_texto_libre(cuenta_id, texto, plan)
 
-    try:
-        intencion = interpretar_movimiento(texto)
-    except Exception as e:
-        log.exception("Falló la interpretación con IA")
-        # Sin datos sensibles: solo el TIPO de falla, para poder diagnosticar.
-        causa = type(e).__name__
-        if isinstance(e, (KeyError, RuntimeError)):
-            causa = "faltan credenciales AZURE_OPENAI en el servidor"
-        return _resultado(
-            "ERROR",
-            f"No pude interpretar eso ahora mismo (IA: {causa}).",
-            texto=texto,
-        )
+    if tipo_r == "BLOQUEO":
+        return _resultado("ERROR", valor, texto=texto)
 
+    intencion = valor
     intencion["texto_original"] = texto
 
     tipo, mensaje, nav = _ejecutar(intencion, estado)

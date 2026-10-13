@@ -10,6 +10,7 @@ from views.dashboard import pantalla_dashboard
 from views.movimientos import pantalla_movimientos
 from views.historial import pantalla_historial
 from views.presupuesto import pantalla_presupuesto
+from views.metas import pantalla_metas
 from views.recordatorios import pantalla_recordatorios
 from views.asistente import pantalla_asistente
 from views.voz import pantalla_voz, procesar_texto_voz
@@ -447,6 +448,16 @@ else:
                     elif (
                         accion
                         ==
+                        "ABRIR_METAS"
+                    ):
+
+                        st.session_state[
+                            "pagina_actual"
+                        ] = "Metas de ahorro"
+
+                    elif (
+                        accion
+                        ==
                         "ABRIR_APRENDIZAJE"
                     ):
 
@@ -553,6 +564,7 @@ else:
         "Movimientos",
         "Historial",
         "Presupuesto",
+        "Metas de ahorro",
         "Recordatorios",
         "Asistente IA",
         "🧠 Aprendizaje",
@@ -652,6 +664,9 @@ else:
 
         "Presupuesto":
             pantalla_presupuesto,
+
+        "Metas de ahorro":
+            pantalla_metas,
 
         "Recordatorios":
             pantalla_recordatorios,

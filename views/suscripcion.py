@@ -8,6 +8,7 @@ from services.billing_service import (
     crear_portal_facturacion,
     sincronizar_suscripcion
 )
+from services.plan_ia_service import estado_ia, limite_ia_diario
 
 
 def _url_base():
@@ -45,6 +46,33 @@ def pantalla_suscripcion():
             st.caption(
                 f"Se renueva el "
                 f"{sub['fin_periodo_actual']:%d/%m/%Y}"
+            )
+
+        cupo = estado_ia(
+            cuenta_id,
+            {
+                "incluye_ia": bool(sub["incluye_ia"]),
+                "plan_slug": sub["plan_slug"]
+            }
+        )
+
+        if cupo["incluye_ia"]:
+
+            st.info(
+                f"🤖 Consultas con IA hoy: {cupo['ia_usadas_hoy']} de "
+                f"{cupo['ia_limite_diario']} "
+                f"(te quedan {cupo['ia_restantes']}). Se reinicia a "
+                "medianoche. Comandos, consultas calculadas, metas y "
+                "registro simple no gastan cupo."
+            )
+
+        else:
+
+            st.info(
+                "Tu plan funciona sin IA: comandos de voz, registro "
+                "simple, consultas calculadas y metas de ahorro. "
+                "Sube a Individual o Familiar para frases libres y "
+                "consejos personalizados con IA."
             )
 
         if sub["cancelar_al_final_periodo"]:
@@ -140,9 +168,15 @@ def pantalla_suscripcion():
 
                 st.markdown("&nbsp;", unsafe_allow_html=True)
 
+                incluye_ia = bool(plan["incluye_ia"])
+
+                limite_ia = limite_ia_diario({
+                    "incluye_ia": incluye_ia,
+                    "plan_slug": plan["slug"]
+                })
+
                 caracteristicas = [
-                    (True, "Movimientos y presupuesto"),
-                    (True, "Historial y Dashboard"),
+                    (True, "Movimientos, presupuesto, historial y dashboard"),
                     (
                         True,
                         "Recordatorios ilimitados"
@@ -153,17 +187,27 @@ def pantalla_suscripcion():
                             f"recordatorios activos"
                         )
                     ),
+                    (True, "Comandos de voz y registro simple "
+                           "(\"gasté 150 en gasolina\")"),
+                    (True, "Consultas calculadas: en qué gastas más, "
+                           "qué afecta tu presupuesto, cuánto llevas"),
+                    (True, "Consejos según tus números y metas de ahorro"),
                     (
-                        bool(plan["incluye_ia"]),
-                        "Asistente IA (texto y voz)"
+                        incluye_ia,
+                        "Frases libres con IA (fechas, varios datos, "
+                        "recordatorios hablando)"
                     ),
                     (
-                        bool(plan["incluye_ia"]),
-                        "Crear recordatorios hablando"
+                        incluye_ia,
+                        "Consejos personalizados con IA"
+                        + (
+                            f" · hasta {limite_ia} consultas de IA al día"
+                            if limite_ia else ""
+                        )
                     ),
                     (
-                        bool(plan["incluye_ia"]),
-                        "Proyección diaria con IA en Inicio"
+                        incluye_ia,
+                        "Proyección diaria redactada con IA en Inicio"
                     ),
                     (
                         plan["tipo_cuenta"] == "FAMILIAR",

@@ -9,6 +9,7 @@ from api.schemas import LoginRequest, RegistroRequest
 from api.security import crear_token
 from api.user_service import validar_credenciales
 from services.billing_service import obtener_plan_actual, obtener_suscripcion
+from services.plan_ia_service import estado_ia
 from services.regalo_service import canjear_codigo, validar_codigo
 from services.usuario_service import registrar_usuario
 
@@ -28,7 +29,9 @@ def info_plan(cuenta_id):
         return {"activa": False, "plan": None,
                 "estado": "vencida" if vencida else "sin_suscripcion",
                 "dias_restantes": None, "incluye_ia": False,
-                "limite_recordatorios": None}
+                "limite_recordatorios": None,
+                "ia_limite_diario": None, "ia_usadas_hoy": 0,
+                "ia_restantes": None}
 
     estado = str(plan.get("status"))
     dias = None
@@ -50,8 +53,8 @@ def info_plan(cuenta_id):
         "plan": plan.get("plan_nombre"),
         "estado": estado,
         "dias_restantes": dias,
-        "incluye_ia": plan["incluye_ia"],
         "limite_recordatorios": plan["limite_recordatorios"],
+        **estado_ia(cuenta_id, plan),
     }
 
 

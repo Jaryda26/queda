@@ -5,6 +5,7 @@ import streamlit as st
 from db import obtener_dataframe
 
 from services.intent_engine import detectar_intencion
+from services.plan_ia_service import resolver_texto_libre
 from services.aprendizaje_service import buscar_frase_aprendida
 from services.action_engine import ejecutar_accion
 from services.ai_client import get_openai_client, get_deployment
@@ -201,9 +202,19 @@ ${saldo:,.2f}
 
                 return
 
-            resultado = interpretar_movimiento(
-                texto
+            tipo_r, resultado = resolver_texto_libre(
+                st.session_state["cuenta_id"],
+                texto,
+                plan
             )
+
+            if tipo_r == "BLOQUEO":
+
+                st.warning(
+                    resultado
+                )
+
+                return
 
             resultado["texto_original"] = texto
 
