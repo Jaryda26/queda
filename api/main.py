@@ -53,7 +53,7 @@ app.include_router(admin_router)
 
 @app.get("/")
 def root():
-    return {"sistema": "QUEDA", "version": "1.2.0", "estado": "online"}
+    return {"sistema": "QUEDA", "version": app.version, "estado": "online"}
 
 
 @app.get("/health")

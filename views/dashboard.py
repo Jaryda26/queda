@@ -4,6 +4,8 @@ import pandas as pd
 
 from db import obtener_dataframe
 from services.insights_service import kpis_periodo, resumen_periodo
+from services.narrativa_service import escapar_para_markdown as E
+from services.presupuesto_service import obtener_estado_presupuesto
 
 CARD = lambda t, v, c: f"""
 <div style='background:{c};
@@ -24,22 +26,60 @@ def pantalla_dashboard():
 
     # TODO el dashboard habla del MISMO periodo que el presupuesto y que
     # la voz: ingresos y gastos del periodo, no del historial completo.
-    k = kpis_periodo(cuenta_id)
+    # El usuario puede escoger otra escala y periodos anteriores.
+    est = obtener_estado_presupuesto(cuenta_id)
+
+    nombre_mio = {
+        "SEMANAL": "Mi periodo (semanal)",
+        "QUINCENAL": "Mi periodo (quincenal)",
+        "MENSUAL": "Mi periodo (mensual)",
+    }.get(est["tipo_periodo"] if est else "MENSUAL", "Mi periodo")
+
+    escalas = {
+        nombre_mio: None,
+        "Semana": "SEMANAL",
+        "Quincena": "QUINCENAL",
+        "Mes": "MENSUAL",
+    }
+    cuando = {
+        "Actual": 0,
+        "Anterior": -1,
+        "Hace 2": -2,
+        "Hace 3": -3,
+        "Hace 4": -4,
+    }
+
+    s1, s2, _ = st.columns([2, 2, 3])
+    escala = s1.selectbox("Ver por", list(escalas), key="dash_escala")
+    vista = s2.selectbox("Periodo", list(cuando), key="dash_cuando")
+
+    k = kpis_periodo(cuenta_id, cuando[vista], escalas[escala])
 
     ingresos = k["ingresos"]
     gastos = k["gastos"]
     resultado = k["resultado"]
     presupuesto = k["presupuesto"]
     porcentaje = k["porcentaje"]
+    es_actual = k["es_actual"]
 
     st.caption(
-        f"📅 Periodo: {k['inicio']:%d/%m/%Y} al {k['fin']:%d/%m/%Y}"
-        + (
-            f" · {k['dias_restantes']} días restantes"
-            if k["dias_restantes"] is not None else " · últimos 30 días"
+        E(
+            f"📅 Periodo: {k['inicio']:%d/%m/%Y} al {k['fin']:%d/%m/%Y}"
+            + (
+                f" · {k['dias_restantes']} días restantes"
+                if k["dias_restantes"] is not None
+                else (" · periodo cerrado" if not es_actual else "")
+            )
+            + f" · 💼 Saldo acumulado hoy: $ {k['saldo_acumulado']:,.0f}"
         )
-        + f" · 💼 Saldo acumulado: $ {k['saldo_acumulado']:,.0f}"
     )
+
+    if escalas[escala] is not None and est and not k["tiene_presupuesto"]:
+
+        st.caption(
+            "Esta escala es distinta a tu presupuesto, por eso no se "
+            "compara contra él. Elige \"" + nombre_mio + "\" para verlo."
+        )
 
     c1, c2, c3, c4, c5 = st.columns(5)
 
@@ -73,7 +113,7 @@ def pantalla_dashboard():
     c4.markdown(
         CARD(
             "Presupuesto de gasto",
-            f"$ {presupuesto:,.0f}",
+            f"$ {presupuesto:,.0f}" if presupuesto > 0 else "—",
             "#f39c12"
         ),
         unsafe_allow_html=True
@@ -95,7 +135,15 @@ def pantalla_dashboard():
 
     st.markdown("## 🚦 Estado del presupuesto")
 
-    if presupuesto <= 0:
+    if presupuesto <= 0 and est:
+
+        st.info(
+            "Esta vista es de otra escala que tu presupuesto, así que no "
+            "se compara contra él. Elige \"" + nombre_mio + "\" para ver "
+            "qué tanto de tu tope has usado."
+        )
+
+    elif presupuesto <= 0:
 
         st.info(
             "Aún no defines un presupuesto. Créalo en 🎯 Presupuesto "
@@ -108,6 +156,8 @@ def pantalla_dashboard():
         st.success(
             f"🟢 Vas muy bien. Has usado {porcentaje:.1f}% de tu "
             "presupuesto y tu ritmo de gasto está controlado."
+            if es_actual else
+            f"🟢 En este periodo usaste {porcentaje:.1f}% de tu presupuesto."
         )
 
     elif porcentaje < 80:
@@ -120,27 +170,27 @@ def pantalla_dashboard():
 
     elif porcentaje <= 100:
 
-        st.warning(
+        st.warning(E(
             f"🟠 Cerca del tope. Has usado {porcentaje:.1f}% de tu "
             f"presupuesto y te quedan ${max(k['restante'], 0):,.2f}."
-        )
+        ))
 
     elif resultado >= 0:
 
-        st.warning(
+        st.warning(E(
             f"🟠 Te pasaste ${-k['restante']:,.2f} de tu presupuesto de "
             f"gasto ({porcentaje:.1f}%), pero tu periodo va a favor por "
             f"${resultado:,.2f} porque ingresaste ${ingresos:,.2f}. "
             "Cuida el tope en el siguiente periodo."
-        )
+        ))
 
     else:
 
-        st.error(
+        st.error(E(
             f"🔴 Te pasaste ${-k['restante']:,.2f} de tu presupuesto "
             f"({porcentaje:.1f}%) y además gastaste más de lo que "
             f"ingresaste (-${-resultado:,.2f}). Reduce gastos."
-        )
+        ))
 
     col1, col2 = st.columns(2)
 
@@ -213,22 +263,27 @@ def pantalla_dashboard():
 
     try:
 
-        st.info(resumen_periodo(cuenta_id))
+        st.info(E(resumen_periodo(
+            cuenta_id, cuando[vista], escalas[escala]
+        )))
 
     except Exception:
 
         st.info("Registra movimientos para ver tu resumen del periodo.")
 
-    if presupuesto > 0 and k["restante"] is not None and k["restante"] > 0:
+    if (
+        es_actual and presupuesto > 0
+        and k["restante"] is not None and k["restante"] > 0
+    ):
 
         dias = max(k["dias_restantes"] or 1, 1)
 
-        st.success(
+        st.success(E(
             f"📅 Presupuesto restante: ${k['restante']:,.2f}\n\n"
             f"🎯 Puedes gastar aproximadamente "
             f"${k['restante'] / dias:,.2f} por día durante los "
             f"{dias} días que quedan."
-        )
+        ))
 
     ultimos = obtener_dataframe(
         """

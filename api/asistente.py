@@ -19,7 +19,7 @@ router = APIRouter(prefix="/asistente", tags=["Asistente"])
 
 
 class Turno(BaseModel):
-    rol: str = Field(pattern="^(usuario|asistente)$")
+    rol: str = Field(max_length=12)
     texto: str = Field(max_length=1500)
 
 
@@ -47,7 +47,10 @@ def estado(usuario=Depends(usuario_con_plan)):
 
 @router.post("/chat")
 def chat(c: ChatIn, usuario=Depends(usuario_con_plan)):
-    historial = [t.model_dump() for t in (c.historial or [])]
+    historial = [
+        (t.model_dump() if hasattr(t, "model_dump") else t.dict())
+        for t in (c.historial or [])
+    ]
     r = procesar(usuario, c.mensaje, False, modo_chat=True, historial=historial)
     r["cupo"] = _estado(usuario)
     return r

@@ -145,42 +145,73 @@ def pantalla_home():
 
     datos_proyeccion = calcular_datos_proyeccion(cuenta_id)
 
-    col1, col2, col3 = st.columns(3)
+    # Las mismas cifras y el mismo periodo que el Dashboard.
+    from services.insights_service import kpis_periodo
+
+    k = kpis_periodo(cuenta_id)
+    proyeccion = datos_proyeccion["proyeccion_fin_periodo"]
+
+    st.caption(
+        f"📅 Tu periodo: {k['inicio']:%d/%m} al {k['fin']:%d/%m}"
+        + (
+            f" · {k['dias_restantes']} días restantes"
+            if k["dias_restantes"] is not None else ""
+        )
+    )
+
+    col1, col2, col3, col4 = st.columns(4)
 
     with col1:
 
         st.metric(
-            "💰 Disponible",
-            f"${datos_proyeccion['disponible_actual']:,.0f}"
+            "💰 Saldo acumulado",
+            f"${k['saldo_acumulado']:,.0f}",
+            help=(
+                "Todo lo que has ingresado menos todo lo que has gastado "
+                "desde que empezaste a usar Queda."
+            ),
         )
 
     with col2:
 
-        proyeccion = datos_proyeccion["proyeccion_fin_periodo"]
+        res = k["resultado"]
 
         st.metric(
-            "📈 Proyección del periodo",
-            (
-                f"${proyeccion:,.0f}"
-                if proyeccion is not None
-                else "—"
-            ),
-            delta=(
-                "Margen" if (
-                    proyeccion is not None and proyeccion >= 0
-                )
-                else "Déficit" if proyeccion is not None
-                else None
-            ),
-            delta_color=(
-                "normal" if (
-                    proyeccion is None or proyeccion >= 0
-                )
-                else "inverse"
-            )
+            "📊 Resultado del periodo",
+            f"{'+' if res >= 0 else '-'}${abs(res):,.0f}",
+            delta="A favor" if res >= 0 else "En contra",
+            delta_color="normal" if res >= 0 else "inverse",
+            help="Ingresos menos gastos de tu periodo actual.",
         )
 
     with col3:
+
+        if k["tiene_presupuesto"] and k["restante"] is not None:
+
+            st.metric(
+                "🎯 Te quedan de presupuesto",
+                f"${k['restante']:,.0f}",
+                delta=f"{k['porcentaje']:.0f}% usado",
+                delta_color=(
+                    "normal" if k["porcentaje"] < 80 else "inverse"
+                ),
+                help=(
+                    "Tu presupuesto es un tope de GASTO. Proyección al "
+                    "cierre del periodo a tu ritmo actual: "
+                    + (
+                        f"${proyeccion:,.0f} de margen."
+                        if proyeccion is not None and proyeccion >= 0
+                        else f"te pasarías ${abs(proyeccion):,.0f}."
+                        if proyeccion is not None else "sin datos."
+                    )
+                ).replace("$", "\\$"),
+            )
+
+        else:
+
+            st.metric("🎯 Presupuesto", "—", help="Aún no defines uno.")
+
+    with col4:
 
         st.metric(
             "🔔 Recordatorios pendientes",

@@ -14,9 +14,16 @@ financieros reales del usuario.
 Reglas estrictas:
 - Usa ÚNICAMENTE las cifras que vienen en el JSON. No inventes,
   no cambies, no agregues ninguna cifra que no esté ahí.
-- Si "proyeccion_fin_periodo" o "proyeccion_proximo_recordatorio"
-  son positivos, es una proyección de AHORRO/margen. Si son
-  negativos, es una proyección de DÉFICIT (les va a faltar dinero).
+- "proyeccion_fin_periodo" es cuánto le SOBRARÍA de su PRESUPUESTO
+  de gasto al cerrar el periodo si sigue a este ritmo (NO es dinero
+  ahorrado ni su saldo). Si es negativa, se pasaría del presupuesto.
+  Dilo como "margen de tu presupuesto", nunca como "ahorro".
+- "proyeccion_proximo_recordatorio" sigue la misma lógica: lo que
+  quedaría del presupuesto después de pagar ese pendiente.
+- "resultado_periodo" es ingresos menos gastos del periodo (positivo =
+  a favor). "saldo_acumulado" es todo lo ingresado menos todo lo gastado
+  desde siempre. No los mezcles con el presupuesto.
+- "dias_restantes_periodo" ya cuenta el día de hoy; úsalo tal cual.
 - Tono cálido y motivador cuando las proyecciones son buenas; tono
   de alerta amable (nunca alarmista, nunca culpabilizador) cuando
   son malas.
@@ -54,6 +61,13 @@ def calcular_datos_proyeccion(cuenta_id):
     hoy = date.today()
 
     datos = {
+        "periodo": None,
+        "ingresos_periodo": 0.0,
+        "gastado_periodo": 0.0,
+        "resultado_periodo": 0.0,
+        "presupuesto_monto": None,
+        "restante_presupuesto": None,
+        "saldo_acumulado": 0.0,
         "disponible_actual": 0.0,
         "porcentaje_usado_presupuesto": None,
         "dias_restantes_periodo": None,
@@ -84,6 +98,7 @@ def calcular_datos_proyeccion(cuenta_id):
     datos["disponible_actual"] = round(
         ingresos - gastos_totales, 2
     )
+    datos["saldo_acumulado"] = datos["disponible_actual"]
 
     from services.presupuesto_service import obtener_estado_presupuesto
 
@@ -124,8 +139,36 @@ def calcular_datos_proyeccion(cuenta_id):
             (fecha_fin - fecha_inicio).days + 1, 1
         )
 
+        # Igual que el dashboard: cuenta HOY (el último día es 1).
         dias_restantes = max(
-            (fecha_fin - hoy).days, 0
+            (fecha_fin - hoy).days + 1, 0
+        )
+
+        ingresos_periodo = _sumar(
+            """
+            SELECT COALESCE(SUM(monto),0)
+            FROM gastos.movimientos
+            WHERE tipo='INGRESO' AND cuenta_id = :cuenta_id
+            AND fecha::date BETWEEN :inicio AND :fin
+            """,
+            {
+                "cuenta_id": cuenta_id,
+                "inicio": fecha_inicio,
+                "fin": fecha_fin
+            }
+        )
+
+        datos["periodo"] = (
+            f"{fecha_inicio:%d/%m} al {fecha_fin:%d/%m}"
+        )
+        datos["ingresos_periodo"] = round(ingresos_periodo, 2)
+        datos["gastado_periodo"] = round(gasto_periodo, 2)
+        datos["resultado_periodo"] = round(
+            ingresos_periodo - gasto_periodo, 2
+        )
+        datos["presupuesto_monto"] = round(monto_presupuesto, 2)
+        datos["restante_presupuesto"] = round(
+            monto_presupuesto - gasto_periodo, 2
         )
 
         ritmo_diario = gasto_periodo / dias_transcurridos
@@ -181,6 +224,9 @@ def calcular_datos_proyeccion(cuenta_id):
 
             row = pagos_df.iloc[0]
             fecha_recordatorio = row["fecha_vencimiento"]
+
+            if hasattr(fecha_recordatorio, "date"):
+                fecha_recordatorio = fecha_recordatorio.date()
 
             dias_para_recordatorio = (
                 fecha_recordatorio - hoy
@@ -238,15 +284,30 @@ def _narrativa_plantilla(datos):
     elif proyeccion_fin >= 0:
 
         partes.append(
-            f"Vas bien: si mantienes tu ritmo actual, "
-            f"cierras el periodo con ${proyeccion_fin:,.0f} de margen."
+            f"Vas bien: a tu ritmo actual terminarías el periodo con "
+            f"${proyeccion_fin:,.0f} de margen en tu presupuesto."
         )
 
     else:
 
         partes.append(
-            f"Cuidado: a tu ritmo actual cerrarías el periodo "
+            f"Cuidado: a tu ritmo actual terminarías el periodo "
             f"${abs(proyeccion_fin):,.0f} arriba de tu presupuesto."
+        )
+
+    if datos.get("periodo"):
+
+        res = datos["resultado_periodo"]
+
+        partes.append(
+            f"En este periodo ({datos['periodo']}) llevas "
+            f"${datos['ingresos_periodo']:,.0f} de ingresos y "
+            f"${datos['gastado_periodo']:,.0f} de gastos: "
+            + (
+                f"vas a favor por ${res:,.0f}."
+                if res >= 0
+                else f"vas en contra por ${abs(res):,.0f}."
+            )
         )
 
     recordatorio = datos["proximo_recordatorio"]
@@ -278,15 +339,16 @@ def _narrativa_plantilla(datos):
             if proyeccion_recordatorio >= 0:
 
                 partes.append(
-                    f"Si sigues así, para entonces te sobrarían "
-                    f"${proyeccion_recordatorio:,.0f}."
+                    f"Si sigues así, para entonces te quedarían "
+                    f"${proyeccion_recordatorio:,.0f} de presupuesto."
                 )
 
             else:
 
                 partes.append(
                     f"Si sigues así, te faltarían "
-                    f"${abs(proyeccion_recordatorio):,.0f} para cubrirlo."
+                    f"${abs(proyeccion_recordatorio):,.0f} de presupuesto "
+                    f"para cubrirlo."
                 )
 
     return " ".join(partes)

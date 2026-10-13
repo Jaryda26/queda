@@ -90,27 +90,65 @@ def _por_categoria(df):
     return [(str(c), float(r["sum"]), int(r["count"])) for c, r in g.iterrows()]
 
 
-def periodo_analisis(cuenta_id):
+TIPOS_VISTA = ("SEMANAL", "QUINCENAL", "MENSUAL")
+
+
+def periodo_analisis(cuenta_id, offset=0, tipo=None):
     """
     El periodo del presupuesto (semana desde tu día de inicio, quincena
     1-15/16-fin o mes natural); sin presupuesto, el mes natural en curso.
+    offset: 0 = actual, -1 = el anterior, -2 = hace dos...
+    tipo: SEMANAL | QUINCENAL | MENSUAL para ver otra escala (en ese caso
+    el presupuesto no se compara, porque es de otro tipo de periodo).
     Incluye el periodo anterior equivalente para comparar.
     """
 
     hoy = date.today()
-    est = obtener_estado_presupuesto(cuenta_id)
+    est0 = obtener_estado_presupuesto(cuenta_id)
+    offset = min(int(offset or 0), 0)
 
-    if est:
-        inicio = date.fromisoformat(est["fecha_inicio"])
-        fin = date.fromisoformat(est["fecha_fin"])
-        p_ini, p_fin = periodo_anterior(
-            est["tipo_periodo"], est["dia_inicio"], inicio
-        )
-        etiqueta = f"tu periodo ({_corta(inicio)} al {_corta(fin)})"
+    dia = est0["dia_inicio"] if est0 else 0
+    tipo_sel = str(tipo or (est0["tipo_periodo"] if est0 else "MENSUAL")).upper()
+
+    if tipo_sel not in TIPOS_VISTA:
+        tipo_sel = "MENSUAL"
+
+    inicio, fin = periodo_para(tipo_sel, dia, hoy)
+
+    for _ in range(-offset):
+        inicio, fin = periodo_anterior(tipo_sel, dia, inicio)
+
+    p_ini, p_fin = periodo_anterior(tipo_sel, dia, inicio)
+
+    est = None
+
+    if est0 and tipo_sel == est0["tipo_periodo"]:
+        if offset == 0:
+            est = est0
+        else:
+            gastado = _total(cuenta_id, "GASTO", inicio, fin)
+            monto = est0["monto"]
+            est = dict(
+                est0,
+                fecha_inicio=inicio.isoformat(),
+                fecha_fin=fin.isoformat(),
+                gastado=round(gastado, 2),
+                restante=round(monto - gastado, 2),
+                porcentaje=round(gastado / monto * 100, 1) if monto > 0 else 0.0,
+                dias_restantes=0,
+            )
+
+    rango = f"({_corta(inicio)} al {_corta(fin)})"
+
+    if offset < 0:
+        etiqueta = f"el periodo del {_corta(inicio)} al {_corta(fin)}"
+    elif est:
+        etiqueta = f"tu periodo {rango}"
     else:
-        inicio, fin = periodo_para("MENSUAL", 0, hoy)
-        p_ini, p_fin = periodo_anterior("MENSUAL", 0, inicio)
-        etiqueta = f"este mes ({_corta(inicio)} al {_corta(fin)})"
+        etiqueta = {
+            "SEMANAL": "esta semana",
+            "QUINCENAL": "esta quincena",
+        }.get(tipo_sel, "este mes") + f" {rango}"
 
     dias_totales = (fin - inicio).days + 1
     transcurridos = max((min(hoy, fin) - inicio).days + 1, 1)
@@ -119,6 +157,8 @@ def periodo_analisis(cuenta_id):
         "inicio": inicio,
         "fin": fin,
         "hoy": hoy,
+        "offset": offset,
+        "tipo": tipo_sel,
         "presupuesto": est,
         "dias_totales": dias_totales,
         "dias_transcurridos": transcurridos,
@@ -162,8 +202,8 @@ def _pagos_pendientes(cuenta_id, hasta):
 # Datos base reutilizados por todas las respuestas
 # ----------------------------------------------------------------------
 
-def analizar(cuenta_id):
-    p = periodo_analisis(cuenta_id)
+def analizar(cuenta_id, offset=0, tipo=None):
+    p = periodo_analisis(cuenta_id, offset, tipo)
 
     actual = _gastos(cuenta_id, p["inicio"], p["fin"])
     previo = _gastos(cuenta_id, p["prev_inicio"], p["prev_fin"])
@@ -194,6 +234,7 @@ def analizar(cuenta_id):
     est = p["presupuesto"]
     if (
         est
+        and p["offset"] == 0
         and est["restante"] > 0
         and p["dias_transcurridos"] >= max(3, 0.3 * p["dias_totales"])
     ):
@@ -404,11 +445,11 @@ def cuanto_llevo(cuenta_id):
     )
 
 
-def resumen_periodo(cuenta_id):
+def resumen_periodo(cuenta_id, offset=0, tipo=None):
     """La historia completa del periodo: ingresos, gastos, resultado,
     presupuesto, mayor egreso y una recomendación."""
 
-    a = analizar(cuenta_id)
+    a = analizar(cuenta_id, offset, tipo)
     p = a["p"]
     est = p["presupuesto"]
 
@@ -433,7 +474,10 @@ def resumen_periodo(cuenta_id):
             f"({t0 / a['total'] * 100:.0f}%)."
         )
 
-    pend, n = _pagos_pendientes(cuenta_id, p["fin"])
+    pend, n = (
+        _pagos_pendientes(cuenta_id, p["fin"])
+        if p["offset"] == 0 else (0.0, 0)
+    )
 
     if n:
         cierre = a["resultado"] - pend
@@ -444,17 +488,20 @@ def resumen_periodo(cuenta_id):
                else f"en contra por {_m(-cierre)}.")
         )
 
-    tips = consejos_calculados(cuenta_id, maximo=1)
+    tips = (
+        consejos_calculados(cuenta_id, maximo=1)
+        if p["offset"] == 0 and (p["presupuesto"] or not tipo) else []
+    )
     if tips:
         texto += " Recomendación: " + tips[0]
 
     return texto
 
 
-def kpis_periodo(cuenta_id):
+def kpis_periodo(cuenta_id, offset=0, tipo=None):
     """Cifras del periodo para los dashboards (web y celular)."""
 
-    a = analizar(cuenta_id)
+    a = analizar(cuenta_id, offset, tipo)
     p = a["p"]
     est = p["presupuesto"]
 
@@ -475,7 +522,9 @@ def kpis_periodo(cuenta_id):
         "presupuesto": monto,
         "porcentaje": round(a["total"] / monto * 100, 1) if monto > 0 else 0.0,
         "restante": (monto - a["total"]) if monto > 0 else None,
-        "dias_restantes": p["dias_restantes"],
+        "dias_restantes": p["dias_restantes"] if p["offset"] == 0 else None,
+        "es_actual": p["offset"] == 0,
+        "tipo": p["tipo"],
         "saldo_acumulado": saldo,
         "movimientos": _contar(cuenta_id, p["inicio"], p["fin"]),
         "categorias": [(c, t) for c, t, _ in a["cats"]],
