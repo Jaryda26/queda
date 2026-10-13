@@ -6,6 +6,10 @@ from datetime import datetime
 
 from db import ejecutar_query
 from db import obtener_dataframe
+from services.categorias_util import (
+    canonizar_categoria,
+    categoria_de_pago,
+)
 from services.intent_engine import (
     extraer_monto_flexible,
     normalizar_texto,
@@ -519,6 +523,7 @@ def ejecutar_accion(resultado):
         "CONSULTA_AFECTA_PRESUPUESTO",
         "CONSULTA_CUANTO_LLEVO",
         "CONSULTA_GASTO_PERIODO",
+        "RESUMEN_PERIODO",
     ):
 
         from services import insights_service as ins
@@ -529,6 +534,9 @@ def ejecutar_accion(resultado):
 
             if accion == "CONSULTA_GASTO_MAYOR":
                 return ins.en_que_gasto_mas(cuenta_id)
+
+            if accion == "RESUMEN_PERIODO":
+                return ins.resumen_periodo(cuenta_id)
 
             if accion == "CONSULTA_AFECTA_PRESUPUESTO":
                 return ins.que_afecta_presupuesto(cuenta_id)
@@ -794,7 +802,7 @@ def ejecutar_accion(resultado):
                     :uid,
                     :cuenta_id,
                     'GASTO',
-                    'Recordatorio',
+                    :categoria_pago,
                     :concepto,
                     :monto,
                     :texto
@@ -806,6 +814,9 @@ def ejecutar_accion(resultado):
 
                     "cuenta_id":
                         st.session_state["cuenta_id"],
+
+                    "categoria_pago":
+                        categoria_de_pago(row["descripcion"]),
 
                     "concepto":
                         row["descripcion"],
@@ -889,9 +900,11 @@ def ejecutar_accion(resultado):
                     st.session_state["cuenta_id"],
 
                 "categoria":
-                    resultado.get(
-                        "categoria",
-                        "Otros"
+                    canonizar_categoria(
+                        resultado.get(
+                            "categoria",
+                            "Otros"
+                        )
                     ),
 
                 "concepto":

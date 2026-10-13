@@ -1,11 +1,8 @@
 from fastapi import APIRouter, Depends
 
 from api.dependencies import usuario_con_plan
-from api.dashboard_service import (
-    obtener_resumen_dashboard,
-    obtener_gastos_por_categoria,
-    obtener_tendencia,
-)
+from api.dashboard_service import obtener_tendencia
+from services.insights_service import kpis_periodo
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
@@ -13,24 +10,31 @@ router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 @router.get("/resumen")
 def resumen(usuario=Depends(usuario_con_plan)):
 
-    df = obtener_resumen_dashboard(usuario["cuenta_id"])
-
-    ingresos = float(df.loc[df["tipo"].str.upper() == "INGRESO", "monto"].sum())
-    gastos = float(df.loc[df["tipo"].str.upper() == "GASTO", "monto"].sum())
+    # Mismo periodo que el presupuesto y que la voz (antes era el mes
+    # calendario y no cuadraba con "cuánto llevo").
+    k = kpis_periodo(usuario["cuenta_id"])
 
     return {
-        "ingresos_mes": ingresos,
-        "gastos_mes": gastos,
-        "ahorro_mes": ingresos - gastos,
-        "movimientos": int(len(df)),
+        # Nombres que ya usa la app (ahora son DEL PERIODO):
+        "ingresos_mes": k["ingresos"],
+        "gastos_mes": k["gastos"],
+        "ahorro_mes": k["resultado"],
+        "movimientos": k["movimientos"],
+        # Nuevos:
+        "periodo_etiqueta": k["etiqueta"],
+        "periodo_inicio": k["inicio"].isoformat(),
+        "periodo_fin": k["fin"].isoformat(),
+        "tiene_presupuesto": k["tiene_presupuesto"],
+        "saldo_acumulado": k["saldo_acumulado"],
     }
 
 
 @router.get("/categorias")
 def categorias(usuario=Depends(usuario_con_plan)):
 
-    df = obtener_gastos_por_categoria(usuario["cuenta_id"]).fillna("")
-    return df.to_dict(orient="records")
+    k = kpis_periodo(usuario["cuenta_id"])
+
+    return [{"categoria": c, "total": t} for c, t in k["categorias"]]
 
 
 @router.get("/tendencia")

@@ -23,6 +23,24 @@ _CATEGORIAS_DIRECTAS = {
     "otros": "Otros",
 }
 
+_RE_RESUMEN_PERIODO = re.compile(
+    r"\b(resumen (de|del) (mi )?(periodo|semana|quincena|mes)|"
+    r"como (me fue|va mi|voy en mi|voy en el|voy esta|va el) "
+    r"(periodo|semana|quincena|mes)|"
+    r"como me fue (este|esta|en el|en la)|"
+    r"como voy (este|esta) (periodo|semana|quincena|mes)|"
+    r"como va mi periodo|mi periodo)\b"
+)
+
+# "en qué categoría he gastado más", "cuál es mi mayor egreso", etc.
+_RE_GASTO_MAYOR_AMPLIO = re.compile(
+    r"\b(que|cual|cuales|donde|en que|en cual)\b.*\b(categoria|rubro|"
+    r"gasto|gastos|egreso|egresos|gastado|gaste|gasto)\b.*\bmas\b|"
+    r"\b(mayor|mayores|principal|principales)\b.*\b(gasto|gastos|"
+    r"egreso|egresos|categoria)\b|"
+    r"\bcategoria\b.*\b(mas|mayor)\b"
+)
+
 _RE_GASTO_MAYOR = re.compile(
     r"\b(en que (he )?gast\w* mas|en que gasto mas|en que se me va|"
     r"donde se me va|donde gasto mas|donde he gastado mas|"
@@ -199,7 +217,10 @@ def detectar_consulta_o_meta(texto):
     if _RE_AFECTA.search(t):
         return {"accion": "CONSULTA_AFECTA_PRESUPUESTO"}
 
-    if _RE_GASTO_MAYOR.search(t):
+    if _RE_RESUMEN_PERIODO.search(t):
+        return {"accion": "RESUMEN_PERIODO"}
+
+    if _RE_GASTO_MAYOR.search(t) or _RE_GASTO_MAYOR_AMPLIO.search(t):
         return {"accion": "CONSULTA_GASTO_MAYOR"}
 
     if _RE_CUANTO_LLEVO.search(t):

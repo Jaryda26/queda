@@ -10,6 +10,7 @@ ya calculados para que la IA solo los redacte (nunca los inventa).
 from datetime import date, datetime, timedelta
 
 from db import obtener_dataframe
+from services.categorias_util import canonizar_categoria
 from services.presupuesto_service import obtener_estado_presupuesto
 
 DIAS_SIN_PRESUPUESTO = 30
@@ -35,7 +36,7 @@ def _dt(d):
 def _gastos(cuenta_id, inicio, fin):
     """Gastos entre dos fechas (ambas incluidas)."""
 
-    return obtener_dataframe(
+    df = obtener_dataframe(
         """
         SELECT concepto, COALESCE(categoria, 'Otros') AS categoria,
                monto, fecha
@@ -45,6 +46,12 @@ def _gastos(cuenta_id, inicio, fin):
         """,
         {"c": cuenta_id, "ini": _dt(inicio), "fin": _dt(fin + timedelta(days=1))},
     )
+
+    # "COMIDA" y "Comida" son la misma categoría.
+    if not df.empty:
+        df["categoria"] = df["categoria"].map(canonizar_categoria)
+
+    return df
 
 
 def _total(cuenta_id, tipo, inicio, fin):
@@ -59,6 +66,18 @@ def _total(cuenta_id, tipo, inicio, fin):
          "ini": _dt(inicio), "fin": _dt(fin + timedelta(days=1))},
     )
     return float(df.iloc[0]["t"]) if not df.empty else 0.0
+
+
+def _contar(cuenta_id, inicio, fin):
+    df = obtener_dataframe(
+        """
+        SELECT COUNT(*) AS n FROM gastos.movimientos
+        WHERE cuenta_id = :c AND fecha >= :ini AND fecha < :fin
+        """,
+        {"c": cuenta_id, "ini": _dt(inicio),
+         "fin": _dt(fin + timedelta(days=1))},
+    )
+    return int(df.iloc[0]["n"]) if not df.empty else 0
 
 
 def _por_categoria(df):
@@ -164,6 +183,7 @@ def analizar(cuenta_id):
             "fecha": f,
         }
 
+    ingresos = _total(cuenta_id, "INGRESO", p["inicio"], p["fin"])
     ritmo = total / p["dias_transcurridos"]
     # Solo se proyecta con suficientes días de datos (con 1 día, un gasto
     # grande haría una proyección absurda) y si aún no se pasó.
@@ -185,6 +205,7 @@ def analizar(cuenta_id):
 
     return {
         "p": p, "total": total, "total_previo": total_previo,
+        "ingresos": ingresos, "resultado": ingresos - total,
         "cats": cats, "cats_prev": cats_prev, "mayor": mayor,
         "ritmo": ritmo, "proyeccion_gasto": proyeccion_gasto,
         "subieron": subieron,
@@ -194,6 +215,21 @@ def analizar(cuenta_id):
 # ----------------------------------------------------------------------
 # Respuestas
 # ----------------------------------------------------------------------
+
+def _resultado_txt(a):
+    """'a favor' / 'en contra' del periodo (ingresos - gastos)."""
+
+    r = a["resultado"]
+
+    if r >= 0:
+        return f"a favor por {_m(r)}"
+
+    return f"en contra por {_m(-r)}"
+
+
+def _nota_deudas(cat):
+    return " (tus pagos a bancos y deudas)" if cat == "Deudas" else ""
+
 
 def en_que_gasto_mas(cuenta_id):
     a = analizar(cuenta_id)
@@ -205,15 +241,31 @@ def en_que_gasto_mas(cuenta_id):
             "Dime por ejemplo: gasté 150 en gasolina."
         )
 
-    partes = []
+    texto = f"En {p['etiqueta']} gastaste {_m(a['total'])}"
 
-    for i, (c, t, _) in enumerate(a["cats"][:3], 1):
-        partes.append(f"{i}. {c}: {_m(t)} ({t / a['total'] * 100:.0f}%)")
+    if a["ingresos"] > 0:
+        texto += f" y recibiste {_m(a['ingresos'])}"
 
-    texto = (
-        f"En {p['etiqueta']} llevas {_m(a['total'])} gastados. "
-        "Lo que más pesa: " + "; ".join(partes) + "."
+    texto += ". "
+
+    c0, t0, _ = a["cats"][0]
+
+    texto += (
+        f"Tu mayor egreso es {c0}{_nota_deudas(c0)} con {_m(t0)} "
+        f"({t0 / a['total'] * 100:.0f}%)"
     )
+
+    otros = [
+        f"{c} {_m(t)} ({t / a['total'] * 100:.0f}%)"
+        for c, t, _ in a["cats"][1:3]
+    ]
+
+    if otros:
+        texto += (
+            "; le sigue " if len(otros) == 1 else "; le siguen "
+        ) + " y ".join(otros)
+
+    texto += "."
 
     m = a["mayor"]
     if m:
@@ -223,6 +275,37 @@ def en_que_gasto_mas(cuenta_id):
         )
 
     return texto
+
+
+def _linea_presupuesto(a, con_resultado=True):
+    """Cómo va el presupuesto SIN confundirlo con el saldo del periodo."""
+
+    est = a["p"]["presupuesto"]
+
+    if est["restante"] < 0:
+        t = f"Te pasaste {_m(-est['restante'])} del presupuesto de gasto ({est['porcentaje']:.0f}% usado)."
+
+        if not con_resultado:
+            pass
+        elif a["ingresos"] > 0 and a["resultado"] >= 0:
+            t += (
+                f" Aun así tu periodo va a favor por {_m(a['resultado'])} "
+                f"porque ingresaste {_m(a['ingresos'])}: el presupuesto es "
+                "un tope de gasto, no tu saldo."
+            )
+        elif a["ingresos"] > 0:
+            t += (
+                f" Además gastaste más de lo que ingresaste "
+                f"({_resultado_txt(a)})."
+            )
+
+        return t
+
+    return (
+        f"Llevas {est['porcentaje']:.0f}% de tu presupuesto: gastaste "
+        f"{_m(est['gastado'])} de {_m(est['monto'])} y te quedan "
+        f"{_m(est['restante'])}."
+    )
 
 
 def que_afecta_presupuesto(cuenta_id):
@@ -236,34 +319,22 @@ def que_afecta_presupuesto(cuenta_id):
             "nada está afectando tu presupuesto por ahora."
         )
 
+    top, top_t, _ = a["cats"][0]
+
     if not est or est["monto"] <= 0:
-        top = a["cats"][0]
         return (
-            f"Aún no tienes un presupuesto definido. En los últimos 30 "
-            f"días lo que más pesa es {top[0]} con {_m(top[1])} "
-            f"({top[1] / a['total'] * 100:.0f}% de tus gastos). "
+            f"Aún no tienes un presupuesto definido. En {p['etiqueta']} "
+            f"lo que más pesa es {top}{_nota_deudas(top)} con {_m(top_t)} "
+            f"({top_t / a['total'] * 100:.0f}% de tus gastos). "
             "Dime: pon mi presupuesto semanal en 2000 pesos, y te digo "
             "qué lo afecta."
         )
 
-    pct = est["porcentaje"]
-    top, top_t, _ = a["cats"][0]
+    texto = _linea_presupuesto(a)
 
-    if est["restante"] < 0:
-        estado = (
-            f"Ya te pasaste {_m(-est['restante'])} de tu presupuesto "
-            f"({pct:.0f}% usado)."
-        )
-    else:
-        estado = (
-            f"Llevas {pct:.0f}% de tu presupuesto: gastaste "
-            f"{_m(est['gastado'])} de {_m(est['monto'])} y te quedan "
-            f"{_m(est['restante'])}."
-        )
-
-    texto = (
-        estado + f" Lo que más lo afecta es {top} con {_m(top_t)} "
-        f"({top_t / a['total'] * 100:.0f}% de tus gastos)."
+    texto += (
+        f" Lo que más lo afecta es {top}{_nota_deudas(top)} con "
+        f"{_m(top_t)} ({top_t / a['total'] * 100:.0f}% de tus gastos)."
     )
 
     if len(a["cats"]) > 1:
@@ -303,7 +374,8 @@ def que_afecta_presupuesto(cuenta_id):
 
 
 def cuanto_llevo(cuenta_id):
-    p = periodo_analisis(cuenta_id)
+    a = analizar(cuenta_id)
+    p = a["p"]
     est = p["presupuesto"]
 
     if not est or est["monto"] <= 0:
@@ -315,11 +387,8 @@ def cuanto_llevo(cuenta_id):
     dias = max(est["dias_restantes"], 1)
 
     if est["restante"] <= 0:
-        return (
-            f"Ya llegaste al límite: gastaste {_m(est['gastado'])} de "
-            f"{_m(est['monto'])} ({est['porcentaje']:.0f}%). "
-            f"Te quedan {est['dias_restantes']} días de periodo."
-        )
+        t = _linea_presupuesto(a)
+        return t + f" Te quedan {est['dias_restantes']} días de periodo."
 
     diario = est["restante"] / dias
 
@@ -330,6 +399,84 @@ def cuanto_llevo(cuenta_id):
         f"día{'s' if est['dias_restantes'] != 1 else ''}; "
         f"puedes gastar unos {_m(diario)} al día."
     )
+
+
+def resumen_periodo(cuenta_id):
+    """La historia completa del periodo: ingresos, gastos, resultado,
+    presupuesto, mayor egreso y una recomendación."""
+
+    a = analizar(cuenta_id)
+    p = a["p"]
+    est = p["presupuesto"]
+
+    if a["total"] <= 0 and a["ingresos"] <= 0:
+        return (
+            f"En {p['etiqueta']} aún no hay movimientos. Registra tus "
+            "gastos e ingresos con la voz y te cuento cómo vas."
+        )
+
+    texto = (
+        f"En {p['etiqueta']} ingresaste {_m(a['ingresos'])} y gastaste "
+        f"{_m(a['total'])}: tu periodo va {_resultado_txt(a)}."
+    )
+
+    if est and est["monto"] > 0:
+        texto += " " + _linea_presupuesto(a, con_resultado=False)
+
+    if a["cats"]:
+        c0, t0, _ = a["cats"][0]
+        texto += (
+            f" Tu mayor egreso es {c0}{_nota_deudas(c0)} con {_m(t0)} "
+            f"({t0 / a['total'] * 100:.0f}%)."
+        )
+
+    pend, n = _pagos_pendientes(cuenta_id, p["fin"])
+
+    if n:
+        cierre = a["resultado"] - pend
+        texto += (
+            f" Te faltan {n} pago{'s' if n != 1 else ''} por {_m(pend)} "
+            f"antes de que cierre el periodo; si los pagas, cerrarías "
+            + (f"a favor por {_m(cierre)}." if cierre >= 0
+               else f"en contra por {_m(-cierre)}.")
+        )
+
+    tips = consejos_calculados(cuenta_id, maximo=1)
+    if tips:
+        texto += " Recomendación: " + tips[0]
+
+    return texto
+
+
+def kpis_periodo(cuenta_id):
+    """Cifras del periodo para los dashboards (web y celular)."""
+
+    a = analizar(cuenta_id)
+    p = a["p"]
+    est = p["presupuesto"]
+
+    saldo = _total(cuenta_id, "INGRESO", date(2000, 1, 1), date.today()) - _total(
+        cuenta_id, "GASTO", date(2000, 1, 1), date.today()
+    )
+
+    monto = est["monto"] if est else 0.0
+
+    return {
+        "etiqueta": p["etiqueta"],
+        "inicio": p["inicio"],
+        "fin": p["fin"],
+        "tiene_presupuesto": bool(est),
+        "ingresos": a["ingresos"],
+        "gastos": a["total"],
+        "resultado": a["resultado"],
+        "presupuesto": monto,
+        "porcentaje": round(a["total"] / monto * 100, 1) if monto > 0 else 0.0,
+        "restante": (monto - a["total"]) if monto > 0 else None,
+        "dias_restantes": p["dias_restantes"],
+        "saldo_acumulado": saldo,
+        "movimientos": _contar(cuenta_id, p["inicio"], p["fin"]),
+        "categorias": [(c, t) for c, t, _ in a["cats"]],
+    }
 
 
 def _rango_periodo(clave):
@@ -413,7 +560,15 @@ def consejos_calculados(cuenta_id, maximo=3):
     else:
         top = a["cats"][0][0] if a["cats"] else None
 
-        if est["restante"] < 0:
+        if est["restante"] < 0 and a["ingresos"] > 0 and a["resultado"] >= 0:
+            tips.append((1, (
+                f"Te pasaste {_m(-est['restante'])} de tu presupuesto de "
+                f"gasto, aunque el periodo va a favor por "
+                f"{_m(a['resultado'])}. Vigila "
+                + (f"{top}" if top else "tus gastos")
+                + " para que el próximo periodo no te alcance el tope."
+            )))
+        elif est["restante"] < 0:
             tips.append((0, (
                 f"Ya te pasaste {_m(-est['restante'])} del presupuesto. "
                 "Lo mejor es pausar gastos no esenciales"
@@ -434,7 +589,11 @@ def consejos_calculados(cuenta_id, maximo=3):
                 f"unos {_m(exceso)}. Baja tu gasto diario de "
                 f"{_m(a['ritmo'])} un poco para llegar justo."
             )))
-        elif est["porcentaje"] <= 60 and p["dias_transcurridos"] >= p["dias_totales"] * 0.6:
+        elif (
+            est["porcentaje"] <= 60
+            and p["dias_transcurridos"] >= p["dias_totales"] * 0.6
+            and _pagos_pendientes(cuenta_id, p["fin"])[1] == 0
+        ):
             tips.append((4, (
                 f"Vas muy bien: usaste {est['porcentaje']:.0f}% de tu "
                 "presupuesto y ya casi termina el periodo. Lo que sobre "
@@ -444,7 +603,14 @@ def consejos_calculados(cuenta_id, maximo=3):
     if a["cats"] and a["total"] > 0:
         c, t, _ = a["cats"][0]
         share = t / a["total"] * 100
-        if share >= 40 and len(a["cats"]) > 1:
+        if c == "Deudas" and share >= 35:
+            tips.append((1, (
+                f"Tu mayor egreso son tus pagos a bancos y deudas "
+                f"({_m(t)}, {share:.0f}% de tus gastos). Atiende tus "
+                "obligaciones bancarias a tiempo para evitar intereses "
+                "y, si puedes, adelanta pagos a la deuda más cara."
+            )))
+        elif share >= 40 and len(a["cats"]) > 1:
             tips.append((2, (
                 f"{c} concentra {share:.0f}% de tus gastos "
                 f"({_m(t)}). Ponerte un tope en esa categoría es lo que "

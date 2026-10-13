@@ -7,6 +7,7 @@ from datetime import date
 from db import obtener_dataframe
 from db import ejecutar_query
 
+from services.categorias_util import categoria_de_pago
 from services.tts_service import texto_a_voz
 from services.recordatorios_service import marcar_pagado
 from services.narrativa_service import (
@@ -62,7 +63,7 @@ def registrar_pago(uid, cuenta_id, descripcion, monto):
             :uid,
             :cuenta_id,
             'GASTO',
-            'Recordatorio',
+            :categoria,
             :concepto,
             :monto,
             :texto
@@ -71,6 +72,7 @@ def registrar_pago(uid, cuenta_id, descripcion, monto):
         {
             "uid": uid,
             "cuenta_id": cuenta_id,
+            "categoria": categoria_de_pago(descripcion),
             "concepto": descripcion,
             "monto": monto,
             "texto": f"Pago automático de {descripcion}"

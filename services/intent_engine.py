@@ -102,6 +102,25 @@ def detectar_categoria(texto):
             "diesel"
         ],
 
+        "Deudas": [
+            "tarjeta",
+            "banco",
+            "bbva",
+            "banorte",
+            "santander",
+            "hsbc",
+            "banamex",
+            "scotiabank",
+            "inbursa",
+            "credito",
+            "prestamo",
+            "hipoteca",
+            "financiamiento",
+            "sears",
+            "coppel",
+            "liverpool"
+        ],
+
         "Comida": [
             "comida",
             "tacos",

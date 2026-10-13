@@ -1,3 +1,4 @@
+from services.categorias_util import categoria_de_pago
 from fastapi import APIRouter, Depends, HTTPException
 
 from db import obtener_dataframe, ejecutar_query
@@ -110,7 +111,7 @@ def crear_recordatorio(r: RecordatorioCreate, usuario=Depends(usuario_con_plan))
 def pagar_recordatorio(recordatorio_id: int, usuario=Depends(usuario_con_plan)):
     """
     Igual que el botón de la web:
-    - PAGO: registra el GASTO (categoría 'Recordatorio').
+    - PAGO: registra el GASTO (categoría según la descripción: Deudas, Servicios...).
     - ACTIVIDAD: solo se completa, sin dinero.
     - Recurrente: avanza la fecha al siguiente periodo; único: queda pagado.
     """
@@ -129,12 +130,13 @@ def pagar_recordatorio(recordatorio_id: int, usuario=Depends(usuario_con_plan)):
                     (usuario_id, cuenta_id, tipo, categoria, concepto,
                      monto, texto_original)
                 VALUES
-                    (:uid, :cid, 'GASTO', 'Recordatorio', :concepto,
+                    (:uid, :cid, 'GASTO', :categoria, :concepto,
                      :monto, :texto)
                 """,
                 {
                     "uid": usuario["id"],
                     "cid": usuario["cuenta_id"],
+                    "categoria": categoria_de_pago(fila["descripcion"]),
                     "concepto": fila["descripcion"],
                     "monto": float(monto),
                     "texto": f"Pago de {fila['descripcion']} (app móvil)",
