@@ -12,10 +12,13 @@ def listar_movimientos(usuario=Depends(usuario_con_plan)):
 
     df = obtener_dataframe(
         """
-        SELECT id, fecha, tipo, concepto, categoria, monto, origen_ingreso
-        FROM gastos.movimientos
-        WHERE cuenta_id = :cuenta_id
-        ORDER BY fecha DESC, id DESC
+        SELECT m.id, m.fecha, m.tipo, m.concepto, m.categoria, m.monto,
+               m.origen_ingreso, m.texto_original,
+               u.nombre AS registrado_por
+        FROM gastos.movimientos m
+        LEFT JOIN gastos.usuarios u ON u.id = m.usuario_id
+        WHERE m.cuenta_id = :cuenta_id
+        ORDER BY m.fecha DESC, m.id DESC
         LIMIT 100
         """,
         {"cuenta_id": usuario["cuenta_id"]}

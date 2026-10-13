@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from db import obtener_dataframe, ejecutar_query
 from api.dependencies import usuario_con_plan
-from api.schemas import RecordatorioCreate
+from api.schemas import RecordatorioCreate, RecordatorioUpdate
 from services.recordatorios_service import (
     marcar_pagado,
     puede_agregar_recordatorio,
@@ -105,6 +105,63 @@ def crear_recordatorio(r: RecordatorioCreate, usuario=Depends(usuario_con_plan))
     )
 
     return {"success": True, "mensaje": "Recordatorio registrado"}
+
+
+@router.put("/{recordatorio_id}")
+def modificar_recordatorio(
+    recordatorio_id: int,
+    r: RecordatorioUpdate,
+    usuario=Depends(usuario_con_plan),
+):
+    """Edita descripción, tipo, monto, fecha, frecuencia y anticipación."""
+
+    fila = _obtener(recordatorio_id, usuario["cuenta_id"])
+
+    tipo = r.tipo.strip().upper()
+    frecuencia = r.frecuencia.strip().upper()
+
+    if tipo not in ("PAGO", "ACTIVIDAD"):
+        raise HTTPException(422, "tipo debe ser PAGO o ACTIVIDAD")
+    if frecuencia not in FRECUENCIAS:
+        raise HTTPException(422, f"frecuencia debe ser una de {FRECUENCIAS}")
+    if tipo == "PAGO" and not (r.monto and r.monto > 0):
+        raise HTTPException(422, "Un pago necesita un monto mayor a cero")
+
+    ejecutar_query(
+        """
+        UPDATE gastos.recordatorios
+        SET descripcion = :descripcion,
+            tipo = :tipo,
+            monto = :monto,
+            fecha_vencimiento = :fecha,
+            frecuencia = :frecuencia,
+            dias_anticipacion = :dias
+        WHERE id = :id AND cuenta_id = :cid
+        """,
+        {
+            "descripcion": r.descripcion.strip(),
+            "tipo": tipo,
+            "monto": r.monto if tipo == "PAGO" else None,
+            "fecha": r.fecha_vencimiento,
+            "frecuencia": frecuencia,
+            "dias": r.dias_anticipacion,
+            "id": recordatorio_id,
+            "cid": usuario["cuenta_id"],
+        },
+    )
+
+    # Si cambió la fecha, se cancela un "Después" anterior para que el
+    # aviso siga la fecha nueva.
+    try:
+        ejecutar_query(
+            "UPDATE gastos.recordatorios SET fecha_proxima_alerta = NULL "
+            "WHERE id = :id AND cuenta_id = :cid",
+            {"id": recordatorio_id, "cid": usuario["cuenta_id"]},
+        )
+    except Exception:
+        pass
+
+    return {"success": True, "mensaje": "Recordatorio actualizado"}
 
 
 @router.put("/{recordatorio_id}/pagar")

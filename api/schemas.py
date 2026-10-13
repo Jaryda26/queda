@@ -26,6 +26,15 @@ class RecordatorioCreate(BaseModel):
     dias_anticipacion: int = Field(default=3, ge=0, le=60)
 
 
+class RecordatorioUpdate(BaseModel):
+    descripcion: str = Field(min_length=1, max_length=255)
+    tipo: str = "PAGO"
+    monto: Optional[float] = Field(default=None, ge=0)
+    fecha_vencimiento: Optional[date] = None
+    frecuencia: str = "UNICO"
+    dias_anticipacion: int = Field(default=3, ge=0, le=60)
+
+
 class RegistroRequest(BaseModel):
     nombre: str = Field(min_length=1, max_length=100)
     email: str = Field(min_length=3, max_length=200)
