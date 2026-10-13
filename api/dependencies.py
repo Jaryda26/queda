@@ -1,4 +1,6 @@
-from fastapi import Header, HTTPException
+import os
+
+from fastapi import Depends, Header, HTTPException
 
 from api.security import validar_token
 from api.user_service import buscar_usuario_por_id
@@ -46,3 +48,24 @@ def exigir_ia(usuario):
     plan = obtener_plan_actual(usuario["cuenta_id"])
     if plan is None or not plan.get("incluye_ia", False):
         raise HTTPException(403, "Tu plan no incluye IA.")
+
+
+def _admins():
+    return {
+        e.strip().lower()
+        for e in os.getenv("ADMIN_EMAILS", "").split(",")
+        if e.strip()
+    }
+
+
+def es_admin(usuario):
+    return str(usuario.get("email", "")).strip().lower() in _admins()
+
+
+def exigir_admin(usuario=Depends(obtener_usuario_actual)):
+    """Solo los correos de ADMIN_EMAILS (variable de entorno del servidor)."""
+
+    if not es_admin(usuario):
+        raise HTTPException(403, "Solo para administradores.")
+
+    return usuario

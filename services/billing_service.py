@@ -35,7 +35,46 @@ def obtener_planes():
     )
 
 
+def _ahora_utc():
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _prueba_vencida(fila):
+    """
+    Las pruebas/regalos manuales (status 'trialing' SIN suscripción de
+    Stripe) tienen fecha de fin en fin_periodo_actual y nadie las cierra
+    solas: aquí se detecta si ya pasó. Las de Stripe las maneja su webhook.
+    """
+
+    if str(fila.get("status")) != "trialing":
+        return False
+
+    stripe_sub = fila.get("stripe_subscription_id")
+
+    if isinstance(stripe_sub, str) and stripe_sub.strip():
+        return False
+
+    fin = fila.get("fin_periodo_actual")
+
+    if fin is None or pd.isna(fin):
+        return False
+
+    return pd.Timestamp(fin).to_pydatetime().replace(tzinfo=None) < _ahora_utc()
+
+
 def obtener_suscripcion(cuenta_id):
+
+    df = _leer_suscripcion(cuenta_id)
+
+    # Una prueba regalada que ya venció se ve como 'expired' en TODA la
+    # app (web y móvil), sin tener que correr ningún proceso aparte.
+    if not df.empty and _prueba_vencida(df.iloc[0]):
+        df.loc[df.index[0], "status"] = "expired"
+
+    return df
+
+
+def _leer_suscripcion(cuenta_id):
 
     return obtener_dataframe(
         """
