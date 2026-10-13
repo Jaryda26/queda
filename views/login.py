@@ -8,7 +8,16 @@ from auth.session import login_user
 
 def pantalla_login(cookie_manager):
 
-    st.title("🔐 Login")
+    import os
+
+    _icono = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "assets", "icono_queda.png",
+    )
+    if os.path.exists(_icono):
+        st.image(_icono, width=84)
+
+    st.title("Queda")
 
     with st.form("form_login"):
 

@@ -31,9 +31,14 @@ from services.tts_service import texto_a_voz
 import extra_streamlit_components as stx
 
 
+import os as _os
+
+_ASSETS = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "assets")
+_ICONO = _os.path.join(_ASSETS, "icono_queda.png")
+
 st.set_page_config(
     page_title="Queda",
-    page_icon="💰",
+    page_icon=_ICONO if _os.path.exists(_ICONO) else "💰",
     layout="wide"
 )
 
@@ -238,7 +243,12 @@ else:
 
         st.stop()
 
-    st.sidebar.markdown("### 🎤 Queda")
+    if _os.path.exists(_ICONO):
+        _c1, _c2 = st.sidebar.columns([1, 3])
+        _c1.image(_ICONO, width=44)
+        _c2.markdown("### Queda")
+    else:
+        st.sidebar.markdown("### 🎤 Queda")
 
     # Micrófono FLOTANTE: se dibuja en el cuerpo de la página (no en la
     # barra lateral) y el CSS de services/ui_theme.py lo fija en la
