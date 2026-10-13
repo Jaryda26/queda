@@ -1,0 +1,13 @@
+.env
+.git
+.gitignore
+.streamlit
+__pycache__
+*.pyc
+*.md
+BASE
+views
+components
+auth
+webhook_service
+app.py

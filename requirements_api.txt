@@ -1,0 +1,16 @@
+# Dependencias de la API (las usa el Dockerfile). El requirements.txt de la
+# raíz sigue siendo el de la app web en Streamlit.
+fastapi
+uvicorn[standard]
+python-jose[cryptography]
+tzdata
+# db.py y los services importan streamlit aunque la API no abre ninguna página
+streamlit
+pandas
+sqlalchemy
+psycopg2-binary
+python-dotenv
+bcrypt
+openai
+stripe
+requests
