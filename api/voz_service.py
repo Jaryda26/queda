@@ -28,10 +28,10 @@ _DESTINOS = {
     "presupuesto": "presupuesto",
     "aprendizaje": "aprendizaje",
     "metas de ahorro": "metas",
+    "asistente ia": "asesor",
 }
 
 _SOLO_WEB = {
-    "asistente ia": "Asistente",
     "cuenta": "Cuenta",
     "suscripcion": "Suscripción",
 }
@@ -82,7 +82,7 @@ def _quitar_nombre_agente(texto, nombre_agente):
 
     if difflib.SequenceMatcher(
         None, primera.lower(), nombre.lower()
-    ).ratio() < 0.6:
+    ).ratio() < 0.8:
         return texto
 
     resto = re.sub(r"^[,.:;!?]+\s*", "", " ".join(palabras[1:]).strip())
@@ -132,7 +132,56 @@ def _ejecutar(intencion, estado):
     return "MENSAJE", str(mensaje), None
 
 
-def procesar(usuario, texto, esperando_monto=False):
+_INICIO_REGISTRO = re.compile(
+    r"^(?:(?:ya|hoy|ayer|antier|anteayer|oye|mira|pues)\s+)*"
+    r"(?:gaste|compre|pague|cobre|gane|recibi|vendi|me cobraron|me costo|"
+    r"me costaron|me depositaron|me transfirieron|me pagaron|se me fueron)\b"
+)
+
+
+def _parece_registro(texto):
+    from services.intent_engine import normalizar_texto
+    return bool(_INICIO_REGISTRO.match(normalizar_texto(texto)))
+
+
+def _asesor_chat(cuenta_id, texto, plan, historial):
+    """Pregunta abierta al asesor: IA si el plan la incluye y hay cupo; si
+    no, la versión calculada (siempre responde algo útil)."""
+
+    from services.asesor_service import asesor_ia, respuesta_calculada
+    from services.plan_ia_service import (
+        consumir_ia,
+        devolver_ia,
+        mensaje_limite_alcanzado,
+    )
+
+    try:
+        base = respuesta_calculada(cuenta_id, texto)
+    except Exception:
+        log.exception("Falló el cálculo del asesor")
+        base = "No pude calcular tus números ahora mismo."
+
+    if plan is None or not plan.get("incluye_ia", False):
+        return (
+            base + "\n\nCon el plan Individual o Familiar el asesor "
+            "analiza tus movimientos con inteligencia artificial y "
+            "responde cualquier pregunta."
+        )
+
+    permitido, _, limite = consumir_ia(cuenta_id, plan)
+
+    if not permitido:
+        return base + "\n\n" + mensaje_limite_alcanzado(limite, plan)
+
+    try:
+        return asesor_ia(cuenta_id, texto, historial)
+    except Exception:
+        devolver_ia(cuenta_id)
+        log.exception("Falló el asesor con IA")
+        return base + "\n\n(La IA no respondió; esto es calculado y no gastó tu cupo.)"
+
+
+def procesar(usuario, texto, esperando_monto=False, modo_chat=False, historial=None):
 
     estado = nueva_sesion(
         user_id=int(usuario["id"]),
@@ -199,6 +248,14 @@ def procesar(usuario, texto, esperando_monto=False):
     # ---- texto libre: reglas simples, y IA si el plan la incluye ----
     cuenta_id = int(usuario["cuenta_id"])
     plan = obtener_plan_actual(cuenta_id)
+
+    # En el chat del asesor, lo que no parece un registro es una pregunta
+    # para el asesor (consejos, diagnóstico, inversión...).
+    if modo_chat and not _parece_registro(texto):
+        return _resultado(
+            "MENSAJE", _asesor_chat(cuenta_id, texto, plan, historial),
+            texto=texto,
+        )
 
     tipo_r, valor = resolver_texto_libre(cuenta_id, texto, plan)
 

@@ -8,6 +8,7 @@ import re
 
 from services.intent_engine import (
     detectar_categoria,
+    extraer_dia_inicio,
     extraer_monto_flexible,
     normalizar_texto,
 )
@@ -23,8 +24,35 @@ _CATEGORIAS_DIRECTAS = {
     "otros": "Otros",
 }
 
+_RE_DIA_SEMANA = re.compile(
+    r"\b(que dias?( de la semana)? (gasto|gaste|se gasta|gastas|gastamos) mas|"
+    r"cual dia( de la semana)? (gasto|gaste) mas|"
+    r"dias? (de la semana )?(en el )?que (mas )?gasto|"
+    r"en que dia (de la semana )?gasto mas)\b"
+)
+
+_RE_CAT_INGRESO = re.compile(
+    r"\b(dilu\w+|se come\w*|se lleva\w*|me quita\w*|me consume\w*|"
+    r"absorbe\w*|se va mi|a donde se va (mi|el)|cuanto de mi "
+    r"(ingreso|sueldo|nomina|salario) se va)\b.*\b(ingreso|ingresos|sueldo|"
+    r"nomina|salario|dinero|quincena|paga)\b|"
+    r"\bque (parte|porcentaje) de mi (ingreso|sueldo|nomina|salario) "
+    r"(se va|gasto)"
+)
+
+_RE_ASESOR = re.compile(
+    r"\b((como|que) (ves|ven|opinas de|piensas de|te parecen) mis finanzas|"
+    r"como (estan|andan|van) mis finanzas|analiza mis finanzas|"
+    r"revisa mis finanzas|diagnostico (financiero|de mis finanzas)|"
+    r"consejo financiero|que debo (reducir|recortar|bajar)|"
+    r"que puedo (reducir|recortar|bajar)|que (reduzco|recorto)|"
+    r"para (llegar|alcanzar|cumplir) (a )?(mi|la|el) meta|"
+    r"puedo invertir|debo invertir|en que (puedo |debo )?invertir|"
+    r"como invierto|invertir mi dinero|invertir mis ahorros)\b"
+)
+
 _RE_RESUMEN_PERIODO = re.compile(
-    r"\b(resumen (de|del) (mi )?(periodo|semana|quincena|mes)|"
+    r"\b(dime como voy|como voy|como vamos|resumen (de|del) (mi )?(periodo|semana|quincena|mes)|"
     r"como (me fue|va mi|voy en mi|voy en el|voy esta|va el) "
     r"(periodo|semana|quincena|mes)|"
     r"como me fue (este|esta|en el|en la)|"
@@ -204,6 +232,13 @@ def _periodo_mencionado(texto_norm):
     return None
 
 
+_RE_DIA_INICIO = re.compile(
+    r"\b(semana|periodo|presupuesto|quincena)\b.*\b(inicia|empieza|arranca|"
+    r"comienza|va de|es de)\b|\b(me pagan|cobro|me depositan)\b.*\b"
+    r"(lunes|martes|miercoles|jueves|viernes|sabados?|domingos?)\b"
+)
+
+
 def detectar_consulta_o_meta(texto):
     """dict de intención o None."""
 
@@ -212,10 +247,24 @@ def detectar_consulta_o_meta(texto):
     if not t:
         return None
 
+    if _RE_DIA_INICIO.search(t):
+        dia = extraer_dia_inicio(t)
+        if dia is not None:
+            return {"accion": "CAMBIAR_DIA_INICIO", "dia_inicio": dia}
+
     # ---------------- Consultas calculadas ----------------
 
     if _RE_AFECTA.search(t):
         return {"accion": "CONSULTA_AFECTA_PRESUPUESTO"}
+
+    if _RE_ASESOR.search(t):
+        return {"accion": "CONSEJO_PERSONAL", "pregunta": texto}
+
+    if _RE_DIA_SEMANA.search(t):
+        return {"accion": "CONSULTA_DIA_SEMANA"}
+
+    if _RE_CAT_INGRESO.search(t):
+        return {"accion": "CONSULTA_CATEGORIA_INGRESO"}
 
     if _RE_RESUMEN_PERIODO.search(t):
         return {"accion": "RESUMEN_PERIODO"}

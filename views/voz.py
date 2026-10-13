@@ -64,7 +64,7 @@ def _quitar_nombre_agente(texto):
         nombre_agente.lower()
     ).ratio()
 
-    if similitud < 0.6:
+    if similitud < 0.8:
         return texto
 
     resto = " ".join(palabras[1:]).strip()

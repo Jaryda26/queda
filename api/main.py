@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api.admin import router as admin_router
 from api.aprendizaje import router as aprendizaje_router
+from api.asistente import router as asistente_router
 from api.auth import router as auth_router
 from api.dashboard import router as dashboard_router
 from api.metas import router as metas_router
@@ -20,7 +21,7 @@ _prod = os.getenv("API_ENV", "").strip().lower() == "prod"
 app = FastAPI(
     title="QUEDA API",
     description="API para Android, iOS y Web",
-    version="1.3.0",
+    version="1.4.0",
     docs_url=None if _prod else "/docs",
     redoc_url=None,
     openapi_url=None if _prod else "/openapi.json",
@@ -45,6 +46,7 @@ app.include_router(presupuesto_router)
 app.include_router(metas_router)
 app.include_router(aprendizaje_router)
 app.include_router(voz_router)
+app.include_router(asistente_router)
 app.include_router(suscripcion_router)
 app.include_router(admin_router)
 

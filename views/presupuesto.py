@@ -1,9 +1,10 @@
 import streamlit as st
 
-from datetime import date
-from datetime import timedelta
-
-from db import ejecutar_query
+from services.presupuesto_service import (
+    NOMBRES_DIA,
+    guardar_presupuesto,
+    obtener_estado_presupuesto,
+)
 from db import obtener_dataframe
 
 
@@ -14,59 +15,58 @@ def pantalla_presupuesto():
 
     st.title("🎯 Presupuesto")
 
-    presupuesto_actual = obtener_dataframe(
-        """
-        SELECT *
-        FROM gastos.presupuestos
-        WHERE cuenta_id = :cuenta_id
-        ORDER BY id DESC
-        LIMIT 1
-        """,
-        {"cuenta_id": cuenta_id}
+    st.caption(
+        "El presupuesto es un TOPE DE GASTO por periodo. Semanal: 7 días "
+        "desde el día que elijas (por ejemplo viernes a jueves si te "
+        "pagan los viernes). Quincenal: del 1 al 15 y del 16 al fin de "
+        "mes. Mensual: el mes natural."
     )
+
+    actual = obtener_estado_presupuesto(cuenta_id)
 
     monto_default = 0.0
     tipo_default = "MENSUAL"
+    dia_default = 0
 
-    if not presupuesto_actual.empty:
+    if actual:
 
-        monto_default = float(
-            presupuesto_actual.iloc[0]["monto"]
-        )
-
-        tipo_default = str(
-            presupuesto_actual.iloc[0]["tipo_periodo"]
-        )
+        monto_default = float(actual["monto"])
+        tipo_default = actual["tipo_periodo"]
+        dia_default = int(actual["dia_inicio"])
 
         st.info(
-            f"""
-✅ Presupuesto actual encontrado
-
-Periodo actual: {tipo_default}
-
-Monto actual: ${monto_default:,.2f}
-
-Modifica los valores y presiona
-"Actualizar Presupuesto".
-"""
+            f"✅ Presupuesto {tipo_default.lower()}: "
+            f"${monto_default:,.2f}\n\n"
+            f"Periodo actual: {actual['fecha_inicio']} al "
+            f"{actual['fecha_fin']} — llevas "
+            f"${actual['gastado']:,.2f} ({actual['porcentaje']:.0f}%), "
+            f"te quedan ${actual['restante']:,.2f} y "
+            f"{actual['dias_restantes']} día(s)."
         )
 
-    opciones = [
-        "SEMANAL",
-        "QUINCENAL",
-        "MENSUAL"
-    ]
-
-    indice = 0
-
-    if tipo_default in opciones:
-        indice = opciones.index(tipo_default)
+    opciones = ["SEMANAL", "QUINCENAL", "MENSUAL"]
 
     tipo = st.selectbox(
         "Periodo",
         opciones,
-        index=indice
+        index=opciones.index(tipo_default)
     )
+
+    dia = dia_default
+
+    if tipo == "SEMANAL":
+
+        dia = st.selectbox(
+            "La semana inicia el",
+            list(range(7)),
+            index=dia_default,
+            format_func=lambda i: NOMBRES_DIA[i].capitalize()
+        )
+
+        st.caption(
+            f"Tu semana irá de {NOMBRES_DIA[dia]} a "
+            f"{NOMBRES_DIA[(dia + 6) % 7]}."
+        )
 
     monto = st.number_input(
         "Monto",
@@ -75,95 +75,22 @@ Modifica los valores y presiona
     )
 
     texto_boton = (
-        "Crear Presupuesto"
-        if presupuesto_actual.empty
-        else "Actualizar Presupuesto"
+        "Actualizar Presupuesto" if actual else "Crear Presupuesto"
     )
 
     if st.button(texto_boton):
 
-        dias = {
-            "SEMANAL": 7,
-            "QUINCENAL": 15,
-            "MENSUAL": 30
-        }
+        try:
 
-        fecha_inicio = date.today()
+            guardar_presupuesto(uid, cuenta_id, tipo, monto, dia)
 
-        fecha_fin = fecha_inicio + timedelta(
-            days=dias[tipo]
-        )
+            st.success("✅ Presupuesto guardado")
 
-        if presupuesto_actual.empty:
+            st.rerun()
 
-            ejecutar_query(
-                """
-                INSERT INTO gastos.presupuestos
-                (
-                    usuario_id,
-                    cuenta_id,
-                    tipo_periodo,
-                    monto,
-                    fecha_inicio,
-                    fecha_fin
-                )
-                VALUES
-                (
-                    :usuario_id,
-                    :cuenta_id,
-                    :tipo_periodo,
-                    :monto,
-                    :fecha_inicio,
-                    :fecha_fin
-                )
-                """,
-                {
-                    "usuario_id": uid,
-                    "cuenta_id": cuenta_id,
-                    "tipo_periodo": tipo,
-                    "monto": monto,
-                    "fecha_inicio": fecha_inicio,
-                    "fecha_fin": fecha_fin
-                }
-            )
+        except ValueError as e:
 
-            st.success(
-                "✅ Presupuesto creado"
-            )
-
-        else:
-
-            ejecutar_query(
-                """
-                UPDATE gastos.presupuestos
-                SET
-                    tipo_periodo = :tipo_periodo,
-                    monto = :monto,
-                    fecha_inicio = :fecha_inicio,
-                    fecha_fin = :fecha_fin
-                WHERE id = :id
-                """,
-                {
-                    "id":
-                        int(
-                            presupuesto_actual.iloc[0]["id"]
-                        ),
-                    "tipo_periodo":
-                        tipo,
-                    "monto":
-                        monto,
-                    "fecha_inicio":
-                        fecha_inicio,
-                    "fecha_fin":
-                        fecha_fin
-                }
-            )
-
-            st.success(
-                "✅ Presupuesto actualizado"
-            )
-
-        st.rerun()
+            st.warning(str(e))
 
     historial = obtener_dataframe(
         """

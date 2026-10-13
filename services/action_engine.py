@@ -105,15 +105,12 @@ def _consejo_personal(cuenta_id, pregunta):
     más personal usando SOLO esas cifras.
     """
 
-    from services import insights_service as ins
+    from services.asesor_service import asesor_ia, respuesta_calculada
     from services.billing_service import obtener_plan_actual
-    from services.plan_ia_service import (
-        consumir_ia,
-        devolver_ia,
-    )
+    from services.plan_ia_service import consumir_ia, devolver_ia
 
     try:
-        base = ins.consejo_texto(cuenta_id)
+        base = respuesta_calculada(cuenta_id, pregunta)
     except Exception:
         log.exception("Falló el cálculo de consejos")
         return "⚠ No pude calcular tus consejos ahora mismo."
@@ -131,63 +128,58 @@ def _consejo_personal(cuenta_id, pregunta):
     if not permitido:
         return (
             base + f" (Llegaste a tu límite de {limite} consultas con IA "
-            "de hoy; estos consejos son calculados. El cupo se "
-            "reinicia a medianoche.)"
+            "de hoy; esto es calculado. El cupo se reinicia a medianoche.)"
         )
 
     try:
-
-        from services.ai_client import get_openai_client, get_deployment
-
-        contexto = ins.contexto_financiero(cuenta_id)
-
-        prompt_sistema = (
-            "Eres el asesor financiero personal de Queda y hablas con el "
-            "usuario por voz/texto. Te doy un JSON con SUS números reales "
-            "(periodo, presupuesto, categorías, metas) y su pregunta.\n\n"
-            "Reglas:\n"
-            "- Usa ÚNICAMENTE cifras del contexto; nunca inventes montos.\n"
-            "- Sé específico y personal: nombra sus categorías y montos, "
-            "y da 2 o 3 acciones concretas que pueda hacer esta semana.\n"
-            "- Si tiene metas de ahorro, conéctalas con el consejo.\n"
-            "- Si faltan datos, dilo y sugiere registrar más gastos.\n"
-            "- Tono cálido y directo, español de México, prosa corrida: "
-            "sin listas, sin tablas, sin markdown ni asteriscos.\n"
-            "- Máximo 6 líneas."
-        )
-
-        response = get_openai_client().chat.completions.create(
-            model=get_deployment(),
-            messages=[
-                {"role": "system", "content": prompt_sistema},
-                {
-                    "role": "user",
-                    "content": (
-                        "Contexto: "
-                        + json.dumps(contexto, ensure_ascii=False, default=str)
-                        + "\n\nPregunta: "
-                        + (pregunta or "Dame un consejo para mejorar mis finanzas")
-                    ),
-                },
-            ],
-            temperature=0.4,
-            max_tokens=380,
-        )
-
-        texto = (response.choices[0].message.content or "").strip()
-        texto = texto.replace("`", "").replace("**", "").replace("*", "")
-
-        if not texto:
-            raise RuntimeError("respuesta vacía")
-
-        return texto
-
+        return asesor_ia(cuenta_id, pregunta)
     except Exception:
-
         devolver_ia(cuenta_id)
         log.exception("Falló el consejo con IA; se usan los calculados")
-
         return base
+
+
+def _texto_presupuesto(nuevo, aviso_dia=False):
+    from datetime import date as _d
+
+    etiqueta = {
+        "SEMANAL": "semanal",
+        "QUINCENAL": "quincenal",
+        "MENSUAL": "mensual",
+    }[nuevo["tipo_periodo"]]
+
+    ini = _d.fromisoformat(nuevo["fecha_inicio"])
+    fin = _d.fromisoformat(nuevo["fecha_fin"])
+
+    texto = (
+        f"✅ Presupuesto {etiqueta} en ${nuevo['monto']:,.2f}. "
+        f"Tu periodo actual va del {ini:%d/%m} al {fin:%d/%m}; "
+        f"llevas ${nuevo['gastado']:,.2f} gastados "
+        f"({nuevo['porcentaje']:.0f}%)."
+    )
+
+    if nuevo["tipo_periodo"] == "SEMANAL" and not aviso_dia:
+        texto += (
+            f" Tu semana inicia el {nuevo['nombre_dia_inicio']}; si te "
+            "pagan otro día, di: mi semana inicia el viernes."
+        )
+
+    return texto
+
+
+def _accion_dia_inicio(dia_inicio):
+    from services.presupuesto_service import cambiar_dia_inicio
+
+    try:
+        nuevo = cambiar_dia_inicio(
+            st.session_state["user_id"],
+            st.session_state["cuenta_id"],
+            dia_inicio,
+        )
+    except ValueError as e:
+        return f"⚠ {e}"
+
+    return _texto_presupuesto(nuevo, True)
 
 
 def _lista_metas(metas):
@@ -429,6 +421,10 @@ def ejecutar_accion(resultado):
         )
 
         monto = resultado.get("monto")
+        dia_inicio = resultado.get("dia_inicio")
+
+        if monto is None and dia_inicio is not None:
+            return _accion_dia_inicio(dia_inicio)
 
         if monto is None:
             return (
@@ -451,21 +447,19 @@ def ejecutar_accion(resultado):
                 st.session_state["cuenta_id"],
                 tipo,
                 monto,
+                dia_inicio,
             )
         except ValueError as e:
             return f"No pude cambiar el presupuesto: {e}"
 
-        etiqueta = {
-            "SEMANAL": "semanal",
-            "QUINCENAL": "quincenal",
-            "MENSUAL": "mensual",
-        }[nuevo["tipo_periodo"]]
+        return _texto_presupuesto(nuevo, dia_inicio is not None)
 
-        return (
-            f"✅ Presupuesto {etiqueta} en ${nuevo['monto']:,.2f}. "
-            f"Llevas ${nuevo['gastado']:,.2f} gastados "
-            f"({nuevo['porcentaje']:.0f}%)."
-        )
+    # =====================================
+    # DÍA EN QUE INICIA LA SEMANA ("mi semana inicia el viernes")
+    # =====================================
+    if accion == "CAMBIAR_DIA_INICIO":
+
+        return _accion_dia_inicio(resultado["dia_inicio"])
 
     # =====================================
     # APRENDER FRASE ("aprende que X es un ingreso")
@@ -524,6 +518,8 @@ def ejecutar_accion(resultado):
         "CONSULTA_CUANTO_LLEVO",
         "CONSULTA_GASTO_PERIODO",
         "RESUMEN_PERIODO",
+        "CONSULTA_DIA_SEMANA",
+        "CONSULTA_CATEGORIA_INGRESO",
     ):
 
         from services import insights_service as ins
@@ -537,6 +533,12 @@ def ejecutar_accion(resultado):
 
             if accion == "RESUMEN_PERIODO":
                 return ins.resumen_periodo(cuenta_id)
+
+            if accion == "CONSULTA_DIA_SEMANA":
+                return ins.dia_semana_mayor_gasto(cuenta_id)
+
+            if accion == "CONSULTA_CATEGORIA_INGRESO":
+                return ins.categoria_vs_ingreso(cuenta_id)
 
             if accion == "CONSULTA_AFECTA_PRESUPUESTO":
                 return ins.que_afecta_presupuesto(cuenta_id)

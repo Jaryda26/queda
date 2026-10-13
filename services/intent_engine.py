@@ -276,6 +276,39 @@ def extraer_monto_flexible(texto):
     return float(total) if total > 0 else None
 
 
+_DIAS_SEMANA = {
+    "lunes": 0, "martes": 1, "miercoles": 2, "jueves": 3,
+    "viernes": 4, "sabado": 5, "domingo": 6,
+}
+
+
+def extraer_dia_inicio(texto):
+    """
+    "inicia el viernes" / "empieza los sabados" / "de viernes a jueves"
+    -> 4 / 5 / 4. None si no menciona uno claro.
+    """
+
+    t = normalizar_texto(texto)
+
+    m = re.search(
+        r"\b(?:inicia|inicie|empieza|empiece|arranca|comienza|comience|"
+        r"desde|de|cada|los|el)\s+(?:el |los |cada )?"
+        r"(lunes|martes|miercoles|jueves|viernes|sabados?|domingos?)\b"
+        r"(?:\s+a\s+(?:lunes|martes|miercoles|jueves|viernes|sabado|domingo))?",
+        t,
+    )
+
+    if not m:
+        return None
+
+    dia = m.group(1)
+
+    if dia not in _DIAS_SEMANA:
+        dia = dia[:-1]  # sabados -> sabado
+
+    return _DIAS_SEMANA[dia]
+
+
 _PERIODOS = (
     ("SEMANAL", ("semanal", "semana", "semanas")),
     ("QUINCENAL", ("quincenal", "quincena", "quincenas")),
@@ -315,8 +348,14 @@ def detectar_cambio_presupuesto(texto):
             periodo = clave
             break
 
+    dia = extraer_dia_inicio(t) if periodo in (None, "SEMANAL") else None
+
+    if dia is not None and periodo is None:
+        periodo = "SEMANAL"
+
     return {
         "accion": "CAMBIAR_PRESUPUESTO",
+        "dia_inicio": dia,
         "monto": monto,
         "tipo_periodo": periodo,
     }

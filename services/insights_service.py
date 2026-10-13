@@ -11,9 +11,11 @@ from datetime import date, datetime, timedelta
 
 from db import obtener_dataframe
 from services.categorias_util import canonizar_categoria
-from services.presupuesto_service import obtener_estado_presupuesto
-
-DIAS_SIN_PRESUPUESTO = 30
+from services.presupuesto_service import (
+    obtener_estado_presupuesto,
+    periodo_anterior,
+    periodo_para,
+)
 
 _MESES = [
     "ene", "feb", "mar", "abr", "may", "jun",
@@ -90,9 +92,9 @@ def _por_categoria(df):
 
 def periodo_analisis(cuenta_id):
     """
-    El periodo del presupuesto si existe; si no, los últimos 30 días.
-    Regresa dict con inicio, fin, hoy, dias_totales, dias_transcurridos,
-    dias_restantes, presupuesto (estado o None) y el periodo anterior.
+    El periodo del presupuesto (semana desde tu día de inicio, quincena
+    1-15/16-fin o mes natural); sin presupuesto, el mes natural en curso.
+    Incluye el periodo anterior equivalente para comparar.
     """
 
     hoy = date.today()
@@ -101,13 +103,17 @@ def periodo_analisis(cuenta_id):
     if est:
         inicio = date.fromisoformat(est["fecha_inicio"])
         fin = date.fromisoformat(est["fecha_fin"])
+        p_ini, p_fin = periodo_anterior(
+            est["tipo_periodo"], est["dia_inicio"], inicio
+        )
+        etiqueta = f"tu periodo ({_corta(inicio)} al {_corta(fin)})"
     else:
-        fin = hoy
-        inicio = hoy - timedelta(days=DIAS_SIN_PRESUPUESTO - 1)
+        inicio, fin = periodo_para("MENSUAL", 0, hoy)
+        p_ini, p_fin = periodo_anterior("MENSUAL", 0, inicio)
+        etiqueta = f"este mes ({_corta(inicio)} al {_corta(fin)})"
 
-    dias_totales = max((fin - inicio).days, 1) if est else DIAS_SIN_PRESUPUESTO
+    dias_totales = (fin - inicio).days + 1
     transcurridos = max((min(hoy, fin) - inicio).days + 1, 1)
-    largo = (fin - inicio).days + 1
 
     return {
         "inicio": inicio,
@@ -116,13 +122,10 @@ def periodo_analisis(cuenta_id):
         "presupuesto": est,
         "dias_totales": dias_totales,
         "dias_transcurridos": transcurridos,
-        "dias_restantes": max((fin - hoy).days, 0) if est else None,
-        "prev_inicio": inicio - timedelta(days=largo),
-        "prev_fin": inicio - timedelta(days=1),
-        "etiqueta": (
-            f"tu periodo ({_corta(inicio)} al {_corta(fin)})"
-            if est else "los últimos 30 días"
-        ),
+        "dias_restantes": max((fin - hoy).days + 1, 0),
+        "prev_inicio": p_ini,
+        "prev_fin": p_fin,
+        "etiqueta": etiqueta,
     }
 
 
@@ -479,6 +482,140 @@ def kpis_periodo(cuenta_id):
     }
 
 
+_DIAS_ES = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
+
+VENTANA_DIAS_SEMANA = 56  # 8 semanas
+
+
+def _gasto_por_dia_semana(cuenta_id):
+    """
+    [(dia, total, promedio_por_ese_dia, categoria_principal)] ordenado de
+    mayor a menor total, sobre las últimas 8 semanas. None si hay pocos
+    datos (menos de 14 días desde el primer gasto).
+    """
+
+    hoy = date.today()
+    df = _gastos(cuenta_id, hoy - timedelta(days=VENTANA_DIAS_SEMANA - 1), hoy)
+
+    if df.empty:
+        return None
+
+    primero = df["fecha"].min()
+    primero = primero.date() if hasattr(primero, "date") else primero
+
+    if (hoy - primero).days < 13:
+        return None
+
+    ventana = (hoy - primero).days + 1
+
+    df = df.copy()
+    df["dia"] = df["fecha"].map(lambda f: f.weekday())
+
+    resultado = []
+
+    for dia in range(7):
+        sub = df[df["dia"] == dia]
+        if sub.empty:
+            continue
+        # cuántas veces cayó ese día de la semana dentro de la ventana
+        veces = sum(
+            1 for i in range(ventana)
+            if (primero + timedelta(days=i)).weekday() == dia
+        )
+        cats = _por_categoria(sub)
+        resultado.append((
+            dia, float(sub["monto"].sum()),
+            float(sub["monto"].sum()) / max(veces, 1),
+            cats[0][0] if cats else "Otros",
+        ))
+
+    resultado.sort(key=lambda x: x[1], reverse=True)
+
+    return resultado
+
+
+def dia_semana_mayor_gasto(cuenta_id):
+    datos = _gasto_por_dia_semana(cuenta_id)
+
+    if not datos:
+        return (
+            "Aún tengo pocos datos para saber qué día de la semana gastas "
+            "más: necesito al menos dos semanas de movimientos."
+        )
+
+    d, total, prom, cat = datos[0]
+
+    texto = (
+        f"El día que más gastas es el {_DIAS_ES[d]}: en las últimas "
+        f"semanas llevas {_m(total)} en ese día, unos {_m(prom)} cada "
+        f"{_DIAS_ES[d]}, sobre todo en {cat}."
+    )
+
+    if len(datos) > 1:
+        d2, t2, p2, _ = datos[1]
+        texto += f" Le sigue el {_DIAS_ES[d2]} con {_m(t2)}."
+
+    barato = datos[-1]
+    if len(datos) > 3:
+        texto += f" Tu día más tranquilo es el {_DIAS_ES[barato[0]]}."
+
+    return texto
+
+
+def categoria_vs_ingreso(cuenta_id):
+    """Qué parte de tu ingreso se va a cada categoría."""
+
+    a = analizar(cuenta_id)
+    p = a["p"]
+
+    ingreso = a["ingresos"]
+    etiqueta = p["etiqueta"]
+
+    if ingreso <= 0:
+        hoy = date.today()
+        ingreso = _total(cuenta_id, "INGRESO", hoy - timedelta(days=29), hoy)
+        etiqueta = "los últimos 30 días"
+        if ingreso <= 0:
+            return (
+                "Aún no tienes ingresos registrados, así que no puedo "
+                "calcular qué parte se va a cada categoría. Dime por "
+                "ejemplo: me depositaron 12000 pesos."
+            )
+        hoy = date.today()
+        df = _gastos(cuenta_id, hoy - timedelta(days=29), hoy)
+        cats = _por_categoria(df)
+        total = float(df["monto"].sum()) if not df.empty else 0.0
+    else:
+        cats = a["cats"]
+        total = a["total"]
+
+    if not cats:
+        return f"En {etiqueta} no tienes gastos: todo tu ingreso sigue contigo."
+
+    partes = [
+        f"{c} {t / ingreso * 100:.0f}% ({_m(t)})" for c, t, _ in cats[:3]
+    ]
+
+    c0, t0, _ = cats[0]
+
+    texto = (
+        f"De tu ingreso de {_m(ingreso)} en {etiqueta}, la categoría que "
+        f"más lo diluye es {c0}{_nota_deudas(c0)}: se lleva "
+        f"{t0 / ingreso * 100:.0f}%. Reparto: " + "; ".join(partes) + "."
+    )
+
+    resto = ingreso - total
+
+    texto += (
+        f" Te quedan {_m(resto)} ({resto / ingreso * 100:.0f}% del ingreso)."
+        if resto >= 0 else
+        f" Gastaste {_m(-resto)} más de lo que ingresó."
+    )
+
+    return texto
+
+
+
 def _rango_periodo(clave):
     hoy = date.today()
 
@@ -658,13 +795,13 @@ def consejos_calculados(cuenta_id, maximo=3):
             if metas:
                 m = metas[0]
                 tips.append((3, (
-                    f"En 30 días te sobraron {_m(libre)}. Si apartas "
+                    f"En los últimos 30 días te sobraron {_m(libre)}. Si apartas "
                     f"{_m(sugerido)} (20%) a tu meta {m['nombre']}, la "
                     "alcanzas más rápido. Di: abona a mi meta."
                 )))
             else:
                 tips.append((3, (
-                    f"En 30 días te sobraron {_m(libre)}. Apartar 20% "
+                    f"En los últimos 30 días te sobraron {_m(libre)}. Apartar 20% "
                     f"({_m(sugerido)}) es un buen inicio: crea una meta "
                     "diciendo, por ejemplo, quiero ahorrar 10 mil para "
                     "vacaciones."
@@ -745,10 +882,47 @@ def contexto_financiero(cuenta_id):
         from services.metas_service import listar_metas
         ctx["metas_de_ahorro"] = [
             {"nombre": m["nombre"], "objetivo": m["monto_objetivo"],
-             "ahorrado": m["ahorrado"], "porcentaje": m["porcentaje"],
-             "dias_restantes": m["dias_restantes"]}
+             "ahorrado": m["ahorrado"], "faltante": m["faltante"],
+             "porcentaje": m["porcentaje"],
+             "dias_restantes": m["dias_restantes"],
+             "ahorro_semanal_sugerido": m["ahorro_semanal_sugerido"]}
             for m in listar_metas(cuenta_id) if not m["completada"]
         ][:5]
+    except Exception:
+        pass
+
+    ctx["ingresos_del_periodo"] = round(a["ingresos"], 2)
+    ctx["resultado_del_periodo_ingresos_menos_gastos"] = round(a["resultado"], 2)
+
+    if a["ingresos"] > 0:
+        for item in ctx["categorias_que_mas_pesan"]:
+            item["porcentaje_del_ingreso"] = round(
+                item["total"] / a["ingresos"] * 100, 1
+            )
+
+    try:
+        dias = _gasto_por_dia_semana(cuenta_id)
+        if dias:
+            ctx["gasto_por_dia_de_semana_ultimas_8_semanas"] = [
+                {"dia": _DIAS_ES[d], "total": round(t, 2),
+                 "promedio": round(pr, 2), "categoria_principal": c}
+                for d, t, pr, c in dias
+            ]
+    except Exception:
+        pass
+
+    try:
+        mes = periodo_para("MENSUAL", 0, hoy)[0]
+        meses = []
+        for _ in range(3):
+            ini, fin_m = periodo_para("MENSUAL", 0, mes)
+            meses.append({
+                "mes": ini.strftime("%Y-%m"),
+                "ingresos": round(_total(cuenta_id, "INGRESO", ini, fin_m), 2),
+                "gastos": round(_total(cuenta_id, "GASTO", ini, fin_m), 2),
+            })
+            mes = ini - timedelta(days=1)
+        ctx["ultimos_3_meses"] = meses
     except Exception:
         pass
 

@@ -85,25 +85,16 @@ def calcular_datos_proyeccion(cuenta_id):
         ingresos - gastos_totales, 2
     )
 
-    presupuesto_df = obtener_dataframe(
-        """
-        SELECT monto, fecha_inicio, fecha_fin
-        FROM gastos.presupuestos
-        WHERE cuenta_id = :cuenta_id
-        ORDER BY id DESC
-        LIMIT 1
-        """,
-        {"cuenta_id": cuenta_id}
-    )
+    from services.presupuesto_service import obtener_estado_presupuesto
 
-    if not presupuesto_df.empty:
+    estado = obtener_estado_presupuesto(cuenta_id)
 
-        monto_presupuesto = float(
-            presupuesto_df.iloc[0]["monto"]
-        )
+    if estado:
 
-        fecha_inicio = presupuesto_df.iloc[0]["fecha_inicio"]
-        fecha_fin = presupuesto_df.iloc[0]["fecha_fin"]
+        monto_presupuesto = float(estado["monto"])
+
+        fecha_inicio = date.fromisoformat(estado["fecha_inicio"])
+        fecha_fin = date.fromisoformat(estado["fecha_fin"])
 
         gasto_periodo = _sumar(
             """
@@ -126,11 +117,11 @@ def calcular_datos_proyeccion(cuenta_id):
             )
 
         dias_transcurridos = max(
-            (hoy - fecha_inicio).days, 1
+            (hoy - fecha_inicio).days + 1, 1
         )
 
         dias_totales = max(
-            (fecha_fin - fecha_inicio).days, 1
+            (fecha_fin - fecha_inicio).days + 1, 1
         )
 
         dias_restantes = max(

@@ -38,6 +38,20 @@ Sin cupo (Individual/Familiar), igual: sigue todo lo gratis y se avisa que el cu
 
 Un abono a una meta **no** es un gasto: no mueve el presupuesto.
 
+## Periodos de calendario
+
+- **Semanal:** 7 días que empiezan el día que el usuario elige (p. ej. viernes a jueves). Se cambia en Presupuesto o diciendo "mi semana inicia el viernes".
+- **Quincenal:** del 1 al 15 y del 16 al último día del mes.
+- **Mensual:** el mes natural (28, 29, 30 o 31 días).
+- El dashboard, el presupuesto y todas las respuestas usan el MISMO periodo. Sin presupuesto se usa el mes natural.
+
+## Asesor en el celular y en la web
+
+- Pantalla **Más → Asesor financiero** (chat). El nombre del agente se edita tocándolo en la barra superior (el mismo de la web) y se puede usar al hablar ("Trobi, cómo voy").
+- Gratis (todos los planes, sin IA): cómo voy, cuánto llevo, en qué gasto más, qué día de la semana gasto más, qué categoría diluye mi ingreso, qué afecta mi presupuesto, metas.
+- Con IA (Individual/Familiar, gasta 1 del cupo diario): cómo ves mis finanzas, consejo financiero, qué reducir para llegar a mi meta, si puedo invertir (orientación educativa, sin prometer rendimientos).
+- Si la IA falla o no hay cupo, el asesor contesta con la versión calculada y no cobra cupo.
+
 ## Dónde cambiar los límites
 
 `services/plan_ia_service.py` → `LIMITES_IA_DIARIO` (por `slug` del plan). También se puede
@@ -46,6 +60,7 @@ sobrescribir sin tocar código con variables de entorno en Render:
 
 ## Pasos para activarlo
 
+0. En Supabase → SQL Editor, correr `sql/periodos.sql` (día de inicio de la semana).
 1. En Supabase → SQL Editor, correr `sql/metas_ia.sql` (metas, abonos y contador de IA).
    Sin esto las metas muestran "no disponibles" y la IA funciona **sin tope** (queda aviso en el log).
 2. Subir los archivos y hacer `git push` (Render redespliega solo).
